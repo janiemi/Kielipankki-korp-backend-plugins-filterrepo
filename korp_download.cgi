@@ -2,6 +2,20 @@
 # -*- coding: utf-8 -*-
 
 """
+korp_download.cgi
+
+A CGI script to convert Korp query results to downloadable formats
+
+The script requires the following CGI parameters:
+- query_result: the Korp query result to format
+
+The following CGI parameters are optional
+- format: the format to which to convert the result (json (default),
+  csv, tsv, ...)
+- filename: the (suggested) name of the file to generate (default:
+  korp_kwic_TIME.FMT, where time is the current time (YYYYMMDDhhmmss)
+  and FMT the format)
+- query_params: korp.cgi parameters for generating query_result
 """
 
 
@@ -11,9 +25,7 @@ import sys
 import os
 import time
 import cgi
-import re
 import json
-import urllib, urllib2, base64, md5
 import logging
 
 
@@ -26,16 +38,17 @@ LOG_LEVEL = logging.INFO
 
 
 def main():
-    """
+    """The main CGI handler, modified from that of korp.cgi.
+
+    Converts CGI parameters to a dictionary and initializes logging.
+    The actual work is done in make_download_file its helper functions
+    below.
     """
     starttime = time.time()
-
     sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0) # Open unbuffered stdout
-    
     # Convert form fields to regular dictionary
     form_raw = cgi.FieldStorage()
     form = dict((field, form_raw.getvalue(field)) for field in form_raw.keys())
-
     # Configure logging
     loglevel = logging.DEBUG if "debug" in form else LOG_LEVEL
     logging.basicConfig(filename=LOG_FILE,
@@ -45,28 +58,39 @@ def main():
                         level=loglevel)
     # Log remote IP address and CGI parameters
     logging.info('IP: %s', cgi.os.environ.get('REMOTE_ADDR'))
-    logging.info('Params: %s', form)
-
+    # Limit the length of query_result written to the log
+    logging.info("Params: {'format': '%s', 'filename': '%s', "
+                 "'query_params': '%s', 'query_result': '%.800s'}",
+                 form.get("format"), form.get("filename"),
+                 form.get("query_params"), form.get("query_result"))
     try:
-        make_download_file(form)
+        result = make_download_file(form)
     except Exception, e:
-        raise
-    
+        import traceback
+        exc = sys.exc_info()
+        result = {"ERROR": {"type": exc[0].__name__,
+                            "value": str(exc[1])}
+                  }
+        result["ERROR"]["traceback"] = traceback.format_exc().splitlines()
+        logging.error("%s", result["ERROR"])
+        # Show traceback only if the parameter debug is specified
+        if "debug" not in form:
+            del result["ERROR"]["traceback"]
+    # Print HTTP header and content
+    print_header(result)
+    print_object(result)
+    # Log elapsed time
+    logging.info("Elapsed: %s", str(time.time() - starttime))
+
 
 def make_download_file(form):
-    """Perform a query and return the result in a downloadable format.
-
-    The required parameters are the same as for query.
-
-    The optional parameters:
-    - format: download format ("json", "csv", "tsv", ...)
+    """Format query results and return them in a downloadable format.
 
     For format FMT, the function calls the global function
     make_download_content_FMT with the result returned by query() as
     the argument. The function should return a triple (file content,
     file MIME type, filename extension).
     """
-
     result = {}
     format_type = form.get("format", "json").lower()
     query_params = json.loads(form.get("query_params", ""))
@@ -78,7 +102,7 @@ def make_download_file(form):
     result["download_content_type"] = content_type
     result["download_filename"] = form.get(
         "filename", "korp_kwic_" + time.strftime("%Y%m%d%H%M%S") + filename_ext)
-    print_download_object(result)
+    return result
 
 
 def make_download_content_json(query_result):
@@ -120,7 +144,7 @@ def format_sentence_delimited(sentence, **opts):
     - tokens in left context, separated with spaces
     - tokens in match, separated with spaces
     - tokens in right context, separated with spaces
-    - for parallel corpora only, tokens in aligned sentence
+    - for parallel corpora only: tokens in aligned sentence
     """
     # Match start and end positions in tokens
     match_start = sentence["match"]["start"]
@@ -162,22 +186,8 @@ def format_delimited_fields(fields, **opts):
             + newline)
 
 
-def print_download_object(obj):
-    """Print the downloadable content obj["download_content"]."""
-    if "ERROR" in obj:
-        print_header("text/plain")
-        error = obj["ERROR"]
-        print "Error when trying to download results:"
-        print error["type"] + ": " + error["value"]
-        if "traceback" in error:
-            print error["traceback"]
-    else:
-        print_download_header(obj)
-        print obj["download_content"],
-
-
-def print_download_header(obj):
-    """Print header for the downloadable file in obj.
+def print_header(obj):
+    """Print header for the downloadable file (or error message) in obj.
 
     obj may contain the following keys affecting the output headers:
     - download_content_type => Content-Type (default: text/plain)
@@ -186,16 +196,28 @@ def print_download_header(obj):
     - download_content => Length to Content-Length
     """
     charset = obj.get("download_charset", "utf-8")
-    print "Content-Type: " + obj.get("download_content_type", "text/plain")
+    print "Content-Type: " + (obj.get("download_content_type", "text/plain")
+                              if "ERROR" not in obj
+                              else "text/plain")
     print "Charset: " + charset
-    # Default filename 
-    print ("Content-Disposition: attachment; filename="
-           + obj.get("download_filename", "korp_kwic"))
-    print "Content-Length: " + str(len(obj["download_content"]))
-    # print "Access-Control-Allow-Origin: *"
-    # print "Access-Control-Allow-Methods: GET, POST"
-    # print "Access-Control-Allow-Headers: Authorization"
+    if "ERROR" not in obj:
+        # Default filename 
+        print ("Content-Disposition: attachment; filename="
+               + obj.get("download_filename", "korp_kwic"))
+        print "Content-Length: " + str(len(obj["download_content"]))
     print
+
+
+def print_object(obj):
+    """Print the downloadable content (or error message) in obj."""
+    if "ERROR" in obj:
+        error = obj["ERROR"]
+        print "Error when trying to download results:"
+        print error["type"] + ": " + error["value"]
+        if "traceback" in error:
+            print error["traceback"]
+    else:
+        print obj["download_content"],
 
 
 if __name__ == "__main__":
