@@ -26,8 +26,12 @@ import os
 import time
 import cgi
 import json
+import urllib, urllib2
 import logging
 
+
+# Korp server URL
+KORP_SERVER = "http://localhost/cgi-bin/korp/korp.cgi"
 
 # Path to log file; use /dev/null to disable logging
 LOG_FILE = "/v/korp/log/korp-cgi.log"
@@ -93,8 +97,8 @@ def make_download_file(form):
     """
     result = {}
     format_type = form.get("format", "json").lower()
-    query_params = json.loads(form.get("query_params", ""))
-    query_result = json.loads(form.get("query_result", ""))
+    query_params = json.loads(form.get("query_params", "{}"))
+    query_result = get_query_result(form, query_params)
     content, content_type, filename_ext = \
         globals()["make_download_content_" + format_type](query_result)
     result["download_charset"] = form.get("encoding", "utf-8")
@@ -103,6 +107,23 @@ def make_download_file(form):
     result["download_filename"] = form.get(
         "filename", "korp_kwic_" + time.strftime("%Y%m%d%H%M%S") + filename_ext)
     return result
+
+
+def get_query_result(form, query_params):
+    """Get the query result in form or perform query via the Korp server.
+
+    If form contains query_result, return it. Otherwise return the
+    result obtained by performing a query to Korp server using
+    query_params. The returned value is a dictionary converted from
+    JSON.
+    """
+    if "query_result" in form:
+        query_result_json = form.get("query_result", "{}")
+    else:
+        query_result_json = (urllib2.urlopen(KORP_SERVER, 
+                                             urllib.urlencode(query_params))
+                             .read())
+    return json.loads(query_result_json)
 
 
 def make_download_content_json(query_result):
