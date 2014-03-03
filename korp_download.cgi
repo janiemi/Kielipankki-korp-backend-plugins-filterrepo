@@ -64,9 +64,11 @@ def main():
     logging.info('IP: %s', cgi.os.environ.get('REMOTE_ADDR'))
     # Limit the length of query_result written to the log
     logging.info("Params: {'format': '%s', 'filename': '%s', "
-                 "'query_params': '%s', 'query_result': '%.800s'}",
+                 "'query_params': '%s', 'query_result': '%.800s', "
+                 "'headings': '%s', 'structs': '%s', 'attrs': '%s'}",
                  form.get("format"), form.get("filename"),
-                 form.get("query_params"), form.get("query_result"))
+                 form.get("query_params"), form.get("query_result"),
+                 form.get("headings"), form.get("structs"), form.get("attrs"))
     try:
         result = make_download_file(form)
     except Exception, e:
@@ -99,8 +101,9 @@ def make_download_file(form):
     format_type = form.get("format", "json").lower()
     query_params = json.loads(form.get("query_params", "{}"))
     query_result = get_query_result(form, query_params)
+    opts = extract_options(form, query_params)
     content, content_type, filename_ext = \
-        globals()["make_download_content_" + format_type](query_result)
+        globals()["make_download_content_" + format_type](query_result, **opts)
     result["download_charset"] = form.get("encoding", "utf-8")
     result["download_content"] = content.encode(result["download_charset"])
     result["download_content_type"] = content_type
@@ -126,42 +129,74 @@ def get_query_result(form, query_params):
     return json.loads(query_result_json)
 
 
-def make_download_content_json(query_result):
+def extract_options(form, query_params):
+    """Extract formatting options from form (and query_params)."""
+    opt_defaults = {"headings": "",
+                    "word_format": u"{word}",
+                    "word_attr_format": u"{word}[{attrs}]",
+                    "attr_format": u"{value}",
+                    "attr_separator": u"|"}
+    opts = {}
+
+    def extract_show_opt(opt_name, query_param_name):
+        if opt_name in form:
+            val = form[opt_name]
+            if val == "*":
+                val = query_params[query_param_name]
+            opts[opt_name] = val.split(",")
+
+    extract_show_opt("attrs", "show")
+    extract_show_opt("structs", "show_struct")
+    for opt_name, default_val in opt_defaults.iteritems():
+        opts[opt_name] = form.get(opt_name, default_val)
+    return opts
+
+
+def make_download_content_json(query_result, **opts):
     """Convert query_result to JSON."""
     return (json.dumps(query_result["kwic"], sort_keys=True, indent=4),
             "application/json", ".json")
 
 
-def make_download_content_csv(query_result):
+def make_download_content_csv(query_result, **opts):
     """Convert query_result to comma-separated-values format."""
     return (format_download_content_delimited(query_result, delimiter=u",",
                                               quote=u"\"", escape_quote=u"\"",
-                                              newline=u"\r\n"),
+                                              newline=u"\r\n", **opts),
             "text/csv", ".csv")
 
 
-def make_download_content_tsv(query_result):
+def make_download_content_tsv(query_result, **opts):
     """Convert query_result to tab-separated-values format."""
     return (format_download_content_delimited(query_result, delimiter=u"\t",
                                               quote=u"", escape_quote=u"",
-                                              newline=u"\r\n"),
+                                              newline=u"\r\n", **opts),
             "text/tsv", ".tsv")
 
 
 def format_download_content_delimited(query_result, **opts):
     """Return query_result in a delimited format specified by opts."""
     content = ""
+    # FIXME: This does not work if the script gets the query result
+    # from frontend instead of redoing the query, since the frontend
+    # has processed the corpus names not to contain the vertical bar.
+    if opts["headings"]:
+        is_parallel_corpus = "|" in query_result["kwic"][0]["corpus"]
+        content += format_delimited_fields(
+            ["corpus", "position", "left context", "match", "right context"]
+            + (["aligned text"] if is_parallel_corpus else [])
+            + opts.get("structs", []), **opts)
     for sentence in query_result["kwic"]:
         content += format_sentence_delimited(sentence, **opts)
     return content
 
 
 def format_sentence_delimited(sentence, **opts):
-    """Format a single delimited sentence with the delimiter options opts.
+    """Format a single delimited sentence with the options opts.
 
     The result contains the following fields:
     - corpus ID (in upper case)
-    - corpus position of the start of the Match
+    - corpus position of the start of the match
     - tokens in left context, separated with spaces
     - tokens in match, separated with spaces
     - tokens in right context, separated with spaces
@@ -172,19 +207,39 @@ def format_sentence_delimited(sentence, **opts):
     match_end = sentence["match"]["end"]
     fields = [sentence["corpus"],
               str(sentence["match"]["position"]),
-              format_sentence_tokens(sentence["tokens"][:match_start]),
-              format_sentence_tokens(sentence["tokens"][match_start:match_end]),
-              format_sentence_tokens(sentence["tokens"][match_end:])]
+              format_sentence_tokens(sentence["tokens"][:match_start], **opts),
+              format_sentence_tokens(sentence["tokens"][match_start:match_end],
+                                     **opts),
+              format_sentence_tokens(sentence["tokens"][match_end:], **opts)]
     if "aligned" in sentence:
         for align_key, tokens in sorted(sentence["aligned"].iteritems()):
-            fields.append(format_sentence_tokens(tokens))
+            fields.append(format_sentence_tokens(tokens, **opts))
+    fields.extend(sentence["structs"].get(struct, "")
+                  for struct in opts.get("structs", []))
     return format_delimited_fields(fields, **opts)
 
 
-def format_sentence_tokens(tokens):
+def format_sentence_tokens(tokens, **opts):
     """Format the tokens of a single sentence."""
-    # Allow for None in word
-    return u" ".join(token.get("word", "") or "" for token in tokens)
+    return u" ".join(format_token(token, **opts) for token in tokens)
+
+
+def format_token(token, **opts):
+    """Format a single token, possibly with attributes."""
+    # Allow for None in word (but where do they come from?)
+    result = opts["word_format"].format(word=(token.get("word") or ""))
+    if opts.get("attrs"):
+        result = opts["word_attr_format"].format(
+            word=result, attrs=format_token_attrs(token, **opts))
+    return result
+
+
+def format_token_attrs(token, **opts):
+    """Format the attributes of a token."""
+    return opts["attr_separator"].join(
+        opts["attr_format"].format(name=attrname,
+                                   value=(token.get(attrname) or ""))
+        for attrname in opts["attrs"])
 
 
 def format_delimited_fields(fields, **opts):
