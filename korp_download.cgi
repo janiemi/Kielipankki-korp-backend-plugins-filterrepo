@@ -101,7 +101,7 @@ def make_download_file(form):
     format_type = form.get("format", "json").lower()
     query_params = json.loads(form.get("query_params", "{}"))
     query_result = get_query_result(form, query_params)
-    opts = extract_options(form, query_params)
+    opts = extract_options(form, query_params, query_result)
     content, content_type, filename_ext = \
         globals()["make_download_content_" + format_type](query_result, **opts)
     result["download_charset"] = form.get("encoding", "utf-8")
@@ -129,24 +129,39 @@ def get_query_result(form, query_params):
     return json.loads(query_result_json)
 
 
-def extract_options(form, query_params):
-    """Extract formatting options from form (and query_params)."""
+def extract_options(form, query_params, query_result):
+    """Extract formatting options from form, affected by query_params."""
     opt_defaults = {"headings": "",
                     "word_format": u"{word}",
                     "word_attr_format": u"{word}[{attrs}]",
                     "attr_format": u"{value}",
-                    "attr_separator": u"|"}
+                    "attr_separator": u";"}
     opts = {}
 
-    def extract_show_opt(opt_name, query_param_name):
+    def extract_show_opt(opt_name, query_param_name, query_result_struct_name):
         if opt_name in form:
-            val = form[opt_name]
-            if val == "*":
-                val = query_params[query_param_name]
-            opts[opt_name] = val.split(",")
+            val = orig_val = form[opt_name]
+            if val in ["*", "+"]:
+                val = query_params[query_param_name].split(",")
+            if orig_val == "+":
+                val = get_occurring_keys(val, query_result,
+                                         query_result_struct_name)
+            opts[opt_name] = val
 
-    extract_show_opt("attrs", "show")
-    extract_show_opt("structs", "show_struct")
+    def get_occurring_keys(keys, query_result, struct_name):
+        # FIXME: This does not take into account attributes in aligned
+        # sentences
+        occurring_keys = set()
+        for sent in query_result["kwic"]:
+            if isinstance(sent[struct_name], list):
+                for item in sent[struct_name]:
+                    occurring_keys |= set(item.keys())
+            else:
+                occurring_keys |= set(sent[struct_name].keys())
+        return [key for key in keys if key in occurring_keys]
+
+    extract_show_opt("attrs", "show", "tokens")
+    extract_show_opt("structs", "show_struct", "structs")
     for opt_name, default_val in opt_defaults.iteritems():
         opts[opt_name] = form.get(opt_name, default_val)
     return opts
