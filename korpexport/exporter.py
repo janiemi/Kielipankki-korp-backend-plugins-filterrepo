@@ -12,9 +12,9 @@ import urllib, urllib2
 import logging
 
 
-def make_download_file(*args):
+def make_download_file(*args, **kwargs):
     """Format query results and return them in a downloadable format."""
-    return KorpExporter.make_download_file(*args)
+    return KorpExporter.make_download_file(*args, **kwargs)
 
 
 class KorpExportError(Exception):
@@ -28,6 +28,8 @@ class KorpExporter(object):
     _download_charset = "utf-8"
     _mime_type = "application/unknown"
     _filename_extension = ""
+    _filename_base_default = "korp_kwic_"
+    _option_defaults = {}
     _option_default_defaults = {"headings": "",
                                 "word_format": u"{word}",
                                 "token_format": u"{word}[{attrs}]",
@@ -35,13 +37,14 @@ class KorpExporter(object):
                                 "attr_format": u"{value}",
                                 "attr_separator": u";",
                                 "sentence_separator": ""}
-    _option_defaults = {}
 
-    def __init__(self, form, query_params, query_result, filename_base=None):
+    def __init__(self, format_name, form, query_params, query_result,
+                 filename_base=None):
+        self._format_name = format_name
         self._form = form
         self._query_params = query_params
         self._query_result = query_result
-        self._filename_base = filename_base or "korp_kwic_"
+        self._filename_base = filename_base or self._filename_base_default
         self.__class__._option_defaults.update(self._option_default_defaults)
         self._opts = self._extract_options()
 
@@ -62,14 +65,14 @@ class KorpExporter(object):
         return cls._filename_extension
 
     @classmethod
-    def make_download_file(cls, form, korp_server_url):
+    def make_download_file(cls, form, korp_server_url, **kwargs):
         """Format query results and return them in a downloadable format."""
         result = {}
         format_name = form.get("format", "json").lower()
         query_params = json.loads(form.get("query_params", "{}"))
         query_result = cls.get_query_result(form, query_params, korp_server_url)
         exporter = cls._get_exporter(format_name, form, query_params,
-                                    query_result)
+                                     query_result, **kwargs)
         logging.info('exporter: %s', exporter)
         charset = exporter.get_download_charset()
         result["download_charset"] = charset
@@ -98,9 +101,11 @@ class KorpExporter(object):
         return json.loads(query_result_json)
 
     @classmethod
-    def _get_exporter(cls, format_name, form, query_params, query_result):
+    def _get_exporter(cls, format_name, form, query_params, query_result,
+                      **kwargs):
         exporter_class = cls._find_exporter_class(format_name)
-        return exporter_class(form, query_params, query_result)
+        return exporter_class(format_name, form, query_params, query_result,
+                              **kwargs)
 
     @classmethod
     def _find_exporter_class(cls, format_name):
