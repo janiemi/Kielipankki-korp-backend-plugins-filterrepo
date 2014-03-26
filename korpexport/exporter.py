@@ -49,22 +49,6 @@ class KorpExporter(object):
         self._opts = self._extract_options()
 
     @classmethod
-    def get_formats(cls):
-        return cls._formats
-
-    @classmethod
-    def get_download_charset(cls):
-        return cls._download_charset
-
-    @classmethod
-    def get_content_mimetype(cls):
-        return cls._mime_type
-
-    @classmethod
-    def get_filename_extension(cls):
-        return cls._filename_extension
-
-    @classmethod
     def make_download_file(cls, form, korp_server_url, **kwargs):
         """Format query results and return them in a downloadable format."""
         result = {}
@@ -74,11 +58,11 @@ class KorpExporter(object):
         exporter = cls._get_exporter(format_name, form, query_params,
                                      query_result, **kwargs)
         logging.info('exporter: %s', exporter)
-        charset = exporter.get_download_charset()
+        charset = exporter._download_charset
         result["download_charset"] = charset
         result["download_content"] = (exporter.make_download_content()
                                       .encode(charset))
-        result["download_content_type"] = exporter.get_content_mimetype()
+        result["download_content_type"] = exporter._mime_type
         result["download_filename"] = exporter.get_filename()
         # logging.info('result: %s', result)
         return result
@@ -112,19 +96,13 @@ class KorpExporter(object):
         pkgpath = os.path.dirname(__file__)
         for _, module_name, _ in pkgutil.iter_modules([pkgpath]):
             try:
-                # print pkgpath, module_name, repr(__package__)
                 module = __import__(module_name, globals())
-                # print module, dir(module)
             except ImportError as e:
                 continue
             for name in dir(module):
                 try:
-                    # print name, name[0].isupper(), getattr(module, name)
-                    # if (name[0].isupper()
-                    #     and issubclass(getattr(module, name), cls)):
                     module_class = getattr(module, name)
-                        # print module_class, module_class.get_formats()
-                    if format_name in module_class.get_formats():
+                    if format_name in module_class._formats:
                         return module_class
                 except AttributeError as e:
                     pass
