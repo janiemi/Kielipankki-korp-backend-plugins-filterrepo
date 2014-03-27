@@ -38,58 +38,35 @@ class KorpExporter(object):
                                 "attr_separator": u";",
                                 "sentence_separator": ""}
 
-    def __init__(self, format_name, form, query_params, query_result,
-                 filename_base=None):
+    def __init__(self, format_name, form, filename_base=None):
         self._format_name = format_name
         self._form = form
-        self._query_params = query_params
-        self._query_result = query_result
         self._filename_base = filename_base or self._filename_base_default
         self.__class__._option_defaults.update(self._option_default_defaults)
-        self._opts = self._extract_options()
+        self._opts = {}
+        self._query_params = {}
+        self._query_result = {}
 
     @classmethod
     def make_download_file(cls, form, korp_server_url, **kwargs):
         """Format query results and return them in a downloadable format."""
         result = {}
-        format_name = form.get("format", "json").lower()
-        query_params = json.loads(form.get("query_params", "{}"))
-        query_result = cls.get_query_result(form, query_params, korp_server_url)
-        exporter = cls._get_exporter(format_name, form, query_params,
-                                     query_result, **kwargs)
-        logging.info('exporter: %s', exporter)
-        charset = exporter._download_charset
-        result["download_charset"] = charset
+        exporter = cls._get_exporter(form, **kwargs)
+        # logging.info('exporter: %s', exporter)
+        exporter.process_query(korp_server_url)
+        result["download_charset"] = exporter._download_charset
         result["download_content"] = (exporter.make_download_content()
-                                      .encode(charset))
+                                      .encode(exporter._download_charset))
         result["download_content_type"] = exporter._mime_type
         result["download_filename"] = exporter.get_filename()
         # logging.info('result: %s', result)
         return result
 
     @classmethod
-    def get_query_result(cls, form, query_params, korp_server_url):
-        """Get the query result in form or perform query via the Korp server.
-
-        If form contains query_result, return it. Otherwise return the
-        result obtained by performing a query to Korp server at
-        korp_server_url using query_params. The returned value is a
-        dictionary converted from JSON.
-        """
-        if "query_result" in form:
-            query_result_json = form.get("query_result", "{}")
-        else:
-            query_result_json = (urllib2.urlopen(korp_server_url,
-                                                 urllib.urlencode(query_params))
-                                 .read())
-        return json.loads(query_result_json)
-
-    @classmethod
-    def _get_exporter(cls, format_name, form, query_params, query_result,
-                      **kwargs):
+    def _get_exporter(cls, form, **kwargs):
+        format_name = form.get("format", "json").lower()
         exporter_class = cls._find_exporter_class(format_name)
-        return exporter_class(format_name, form, query_params, query_result,
-                              **kwargs)
+        return exporter_class(format_name, form, **kwargs)
 
     @classmethod
     def _find_exporter_class(cls, format_name):
@@ -108,6 +85,31 @@ class KorpExporter(object):
                     pass
         raise KorpExportError("No exporter found for format '{0}'"
                               .format(format_name))
+
+    def process_query(self, korp_server_url, query_params=None):
+        """Get the query result in form or perform query via the Korp server.
+
+        If form contains query_result, return it. Otherwise return the
+        result obtained by performing a query to Korp server at
+        korp_server_url using query_params. The returned value is a
+        dictionary converted from JSON.
+        """
+        if "query_result" in self._form:
+            query_result_json = self._form.get("query_result", "{}")
+        else:
+            if query_params:
+                self._query_params = query_params
+            elif "query_params" in self._form:
+                self._query_params = json.loads(self._form.get("query_params"))
+            else:
+                self._query_params = self._form
+            logging.info("query_params: %s", self._query_params)
+            query_result_json = (
+                urllib2.urlopen(korp_server_url,
+                                urllib.urlencode(self._query_params))
+                .read())
+        self._query_result = json.loads(query_result_json)
+        self._opts = self._extract_options()
 
     def _extract_options(self):
         """Extract formatting options from form, affected by query_params."""
