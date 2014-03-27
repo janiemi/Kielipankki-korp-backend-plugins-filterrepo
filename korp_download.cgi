@@ -29,7 +29,7 @@ import logging
 import korpexport.exporter as ke
 
 
-# Korp server URL
+# Default Korp server URL
 KORP_SERVER = "http://localhost/cgi-bin/korp/korp.cgi"
 
 # Path to log file; use /dev/null to disable logging
@@ -54,7 +54,8 @@ def main():
     form = dict((field, form_raw.getvalue(field)) for field in form_raw.keys())
     # Configure logging
     loglevel = logging.DEBUG if "debug" in form else LOG_LEVEL
-    logging.basicConfig(filename=LOG_FILE,
+    logfile = form.get("logfile", LOG_FILE)
+    logging.basicConfig(filename=logfile,
                         format=('[%(filename)s %(process)d' +
                                 ' %(levelname)s @ %(asctime)s]' +
                                 ' %(message)s'),
@@ -69,7 +70,8 @@ def main():
                  form.get("query_params"), form.get("query_result"),
                  form.get("headings"), form.get("structs"), form.get("attrs"))
     try:
-        result = ke.make_download_file(form, KORP_SERVER)
+        result = ke.make_download_file(form, 
+                                       form.get("korp_server", KORP_SERVER))
     except Exception as e:
         import traceback
         exc = sys.exc_info()
