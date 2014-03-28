@@ -121,8 +121,10 @@ class KorpExporter(object):
                 val = orig_val = self._form[opt_name]
                 if val in ["*", "+"]:
                     val = self._query_params[query_param_name].split(",")
-                if orig_val == "+":
-                    val = get_occurring_keys(val, query_result_struct_name)
+                    if orig_val == "+":
+                        val = get_occurring_keys(val, query_result_struct_name)
+                else:
+                    val = val.split(",")
                 opts[opt_name] = val
 
         def get_occurring_keys(keys, struct_name):
