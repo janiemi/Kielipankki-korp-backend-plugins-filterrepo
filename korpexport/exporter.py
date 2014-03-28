@@ -60,10 +60,21 @@ class KorpExporter(object):
         self._format_name = format_name
         self._form = form
         self._filename_base = filename_base or self._filename_base_default
-        self.__class__._option_defaults.update(self._option_default_defaults)
+        self._init_option_defaults()
         self._opts = {}
         self._query_params = {}
         self._query_result = {}
+
+    def _init_option_defaults(self):
+        # This instance method modifies the value of a class
+        # attribute. Would it be possible to make this a class method
+        # and still get the same result?
+        opt_defaults = self.__class__._option_defaults
+        logging.debug("opt_defaults 0: %s", opt_defaults)
+        for key, val in self._option_default_defaults.iteritems():
+            if key not in opt_defaults:
+                opt_defaults[key] = val
+        logging.debug("opt_defaults 1: %s", opt_defaults)
 
     @classmethod
     def make_download_file(cls, form, korp_server_url, **kwargs):
