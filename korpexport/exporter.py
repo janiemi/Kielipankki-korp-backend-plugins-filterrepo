@@ -34,6 +34,7 @@ class KorpExporter(object):
     _filename_base_default = "korp_kwic_"
     _option_defaults = {}
     _option_default_defaults = {
+        "newline": "\n",
         "headings": "",
         "header_format": "{headings}",
         "footer_format": "# {date}: {params}\n",
@@ -50,7 +51,7 @@ class KorpExporter(object):
         "aligned_separator": u" | ",
         "struct_format": u"{name}: {value}",
         "struct_separator": u"; ",
-        "text_format": u"{header}{sentences}{footer}",
+        "content_format": u"{header}{sentences}{footer}",
         "date_format": "%Y-%m-%d %H:%M:%S",
         "params_format": (u"Corpora: {corpus}; CQP query: {cqp}; "
                           u"start: {start}; end: {end}")
@@ -242,7 +243,16 @@ class KorpExporter(object):
         return format_str.format(**format_args)
 
     def make_download_content(self):
-        return self._opts["text_format"].format(
+        return self._convert_newlines(self.format_content())
+
+    def _convert_newlines(self, text):
+        if self._opts["newline"] != "\n":
+            return text.replace("\n", self._opts["newline"])
+        else:
+            return text
+
+    def format_content(self):
+        return self._opts["content_format"].format(
             params=self.format_params(),
             # Also allow format references {param[name]}
             param=self._query_params,

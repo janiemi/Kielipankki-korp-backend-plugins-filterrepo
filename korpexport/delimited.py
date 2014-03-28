@@ -15,8 +15,7 @@ class KorpExporterDelimited(KorpExporter):
     _option_defaults = {}
     _delimit_opts = {"delimiter": u",",
                      "quote": u"\"",
-                     "replace_quote": u"\"\"",
-                     "newline": u"\n"}
+                     "replace_quote": u"\"\""}
 
     def __init__(self, *args, **kwargs):
         KorpExporter.__init__(self, *args, **kwargs)
@@ -58,15 +57,13 @@ class KorpExporterDelimited(KorpExporter):
         - quote: quotes surrounding fields (default: ")
         - replace_quote: string to replace a quote with in a field value to
           escape it (default: "")
-        - newline: end-of-record string (default: \r\n)
         """
         delim = self._delimit_opts["delimiter"]
         quote = self._delimit_opts["quote"]
         replace_quote = self._delimit_opts["replace_quote"]
-        newline = self._delimit_opts["newline"]
         return (delim.join((quote + field.replace(quote, replace_quote) + quote)
                            for field in fields)
-                + newline)
+                + "\n")
 
 
 class KorpExporterCSV(KorpExporterDelimited):
@@ -74,10 +71,10 @@ class KorpExporterCSV(KorpExporterDelimited):
     _formats = ["csv"]
     _mime_type = "text/csv"
     _filename_extension = ".csv"
+    _option_defaults = {"newline": "\r\n"}
     _delimit_opts = {"delimiter": u",",
                      "quote": u"\"",
-                     "replace_quote": u"\"\"",
-                     "newline": u"\r\n"}
+                     "replace_quote": u"\"\""}
 
     def __init__(self, *args, **kwargs):
         KorpExporterDelimited.__init__(self, *args, **kwargs)
@@ -90,8 +87,7 @@ class KorpExporterTSV(KorpExporterDelimited):
     _filename_extension = ".tsv"
     _delimit_opts = {"delimiter": u"\t",
                      "quote": u"",
-                     "replace_quote": u"",
-                     "newline": u"\r\n"}
+                     "replace_quote": u""}
 
     def __init__(self, *args, **kwargs):
         KorpExporterDelimited.__init__(self, *args, **kwargs)
