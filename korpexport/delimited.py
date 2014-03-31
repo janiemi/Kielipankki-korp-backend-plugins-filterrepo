@@ -12,10 +12,11 @@ __all__ = ['KorpExporterCSV', 'KorpExporterTSV']
 
 class KorpExporterDelimited(KorpExporter):
 
-    _option_defaults = {}
-    _delimit_opts = {"delimiter": u",",
-                     "quote": u"\"",
-                     "replace_quote": u"\"\""}
+    _option_defaults = {
+        "delimiter": u",",
+        "quote": u"\"",
+        "replace_quote": u"\"\""
+        }
 
     def __init__(self, *args, **kwargs):
         KorpExporter.__init__(self, *args, **kwargs)
@@ -50,17 +51,17 @@ class KorpExporterDelimited(KorpExporter):
         return self.format_fields(fields)
 
     def format_fields(self, fields):
-        """Format fields according to the options in self._delimit_opts.
+        """Format fields according to the options in self._opts.
 
-        self._delimit_opts may contain the following keyword arguments:
+        self._opts may contain the following keys:
         - delim: field delimiter (default: ,)
         - quote: quotes surrounding fields (default: ")
         - replace_quote: string to replace a quote with in a field value to
           escape it (default: "")
         """
-        delim = self._delimit_opts["delimiter"]
-        quote = self._delimit_opts["quote"]
-        replace_quote = self._delimit_opts["replace_quote"]
+        delim = self._opts["delimiter"]
+        quote = self._opts["quote"]
+        replace_quote = self._opts["replace_quote"]
         return (delim.join((quote + field.replace(quote, replace_quote) + quote)
                            for field in fields)
                 + "\n")
@@ -71,10 +72,12 @@ class KorpExporterCSV(KorpExporterDelimited):
     _formats = ["csv"]
     _mime_type = "text/csv"
     _filename_extension = ".csv"
-    _option_defaults = {"newline": "\r\n"}
-    _delimit_opts = {"delimiter": u",",
-                     "quote": u"\"",
-                     "replace_quote": u"\"\""}
+    _option_defaults = {
+        "newline": "\r\n",
+        "delimiter": u",",
+        "quote": u"\"",
+        "replace_quote": u"\"\""
+        }
 
     def __init__(self, *args, **kwargs):
         KorpExporterDelimited.__init__(self, *args, **kwargs)
@@ -85,9 +88,10 @@ class KorpExporterTSV(KorpExporterDelimited):
     _formats = ["tsv"]
     _mime_type = "text/tsv"
     _filename_extension = ".tsv"
-    _delimit_opts = {"delimiter": u"\t",
-                     "quote": u"",
-                     "replace_quote": u""}
+    _option_defaults = {
+        "delimiter": u"\t",
+        "quote": u"",
+        "replace_quote": u""}
 
     def __init__(self, *args, **kwargs):
         KorpExporterDelimited.__init__(self, *args, **kwargs)
