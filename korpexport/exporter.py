@@ -25,15 +25,32 @@ class KorpExportError(Exception):
     pass
 
 
+class KorpExporterMetaclass(type):
+
+    def __init__(self, classname, bases, attrs):
+        super(KorpExporterMetaclass, self).__init__(classname, bases, attrs)
+        self._make_option_defaults(bases)
+
+    def _make_option_defaults(self, base_classes):
+        new_option_defaults = {}
+        for cls in list(base_classes) + [self]:
+            try:
+                new_option_defaults.update(cls._option_defaults)
+            except AttributeError:
+                pass
+        self._option_defaults = new_option_defaults
+
+
 class KorpExporter(object):
+
+    __metaclass__ = KorpExporterMetaclass
 
     _formats = []
     _download_charset = "utf-8"
     _mime_type = "application/unknown"
     _filename_extension = ""
     _filename_base_default = "korp_kwic_"
-    _option_defaults = {}
-    _option_default_defaults = {
+    _option_defaults = {
         "newline": "\n",
         "headings": "",
         "header_format": "{headings}",
@@ -57,25 +74,15 @@ class KorpExporter(object):
                           u"start: {start}; end: {end}")
         }
 
-    def __init__(self, format_name, form, filename_base=None):
+    def __init__(self, format_name, form, options=None, filename_base=None):
         self._format_name = format_name
         self._form = form
+        self._option_defaults = self.__class__._option_defaults
+        self._option_defaults.update(options or {})
         self._filename_base = filename_base or self._filename_base_default
-        self._init_option_defaults()
         self._opts = {}
         self._query_params = {}
         self._query_result = {}
-
-    def _init_option_defaults(self):
-        # This instance method modifies the value of a class
-        # attribute. Would it be possible to make this a class method
-        # and still get the same result?
-        opt_defaults = self.__class__._option_defaults
-        logging.debug("opt_defaults 0: %s", opt_defaults)
-        for key, val in self._option_default_defaults.iteritems():
-            if key not in opt_defaults:
-                opt_defaults[key] = val
-        logging.debug("opt_defaults 1: %s", opt_defaults)
 
     @classmethod
     def make_download_file(cls, form, korp_server_url, **kwargs):
