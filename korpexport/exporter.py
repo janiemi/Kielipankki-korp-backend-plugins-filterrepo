@@ -183,6 +183,20 @@ class KorpExporter(object):
             opts[opt_name] = self._form.get(opt_name, default_val)
         return opts
 
+    def _get_option_bool(self, optname):
+        return (self._opts[optname].lower()
+                not in ["false", "no", "off", "0", ""])
+
+    def _get_option_int(self, optname):
+        value = None
+        try:
+            value = int(self._opts[optname])
+        except ValueError:
+            value = int(self._option_defaults[optname])
+        except TypeError:
+            value = int(self._option_defaults[optname])
+        return value
+
     def get_filename(self):
         return self._form.get(
             "filename",
