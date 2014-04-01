@@ -48,6 +48,7 @@ class KorpExporter(object):
     _formats = []
     _download_charset = "utf-8"
     _mime_type = "application/unknown"
+    _structured_format = False
     _filename_extension = ""
     _filename_base_default = "korp_kwic_"
     _option_defaults = {
@@ -63,11 +64,18 @@ class KorpExporter(object):
         "sentence_format": (u"{corpus} {match_pos}: {left_context}"
                             u"{match_open}{match}{match_close}"
                             u"{right_context}\n"),
+        "match_open": u"",
+        "match_close": u"",
         "sentence_separator": u"",
         "aligned_format": u"{sentence}",
         "aligned_separator": u" | ",
         "struct_format": u"{name}: {value}",
         "struct_separator": u"; ",
+        "token_struct_open_format": "",
+        "token_struct_close_format": "",
+        "token_struct_open_separator": "",
+        "token_struct_close_separator": "",
+        "combine_token_structs": "False",
         "content_format": u"{header}{sentences}{footer}",
         "date_format": "%Y-%m-%d %H:%M:%S",
         "params_format": (u"Corpora: {corpus}; CQP query: {cqp}; "
@@ -140,6 +148,13 @@ class KorpExporter(object):
                 self._query_params = json.loads(self._form.get("query_params"))
             else:
                 self._query_params = self._form
+            # If the format uses structural information, add the
+            # structs in param "show_struct" to "show", so that tokens
+            # are associated with information on opening and closing
+            # those structures. Param "show_struct" only gives us
+            # struct attribute values for a whole sentence.
+            if self._structured_format:
+                self._query_params["show"] += self._query_params["show_struct"]
             logging.debug("query_params: %s", self._query_params)
             query_result_json = (
                 urllib2.urlopen(korp_server_url,
@@ -242,6 +257,39 @@ class KorpExporter(object):
         return [(attrname, token.get(attrname) or "")
                 for attrname in self._opts.get("attrs", [])]
 
+    def get_token_structs_open(self, token, combine_attrs=False):
+        return self._get_token_structs(token, "open", combine_attrs)
+
+    def get_token_structs_close(self, token, combine_attrs=False):
+        return self._get_token_structs(token, "close", combine_attrs)
+
+    def _get_token_structs(self, token, struct_type, combine_attrs=False):
+        try:
+            structs = token["structs"][struct_type]
+        except KeyError:
+            return []
+        if combine_attrs:
+            structs = self._combine_struct_attrs(structs, struct_type)
+        return structs
+
+    def _combine_struct_attrs(self, structs, struct_type):
+        result_structs = []
+        for struct in structs:
+            if struct_type == "open":
+                struct, sp, attrval = struct.partition(" ")
+                if not sp:
+                    attrval = None
+            else:
+                attrval = None
+            # NOTE: This assumes that element names do not contain
+            # underscores.
+            struct, _, attrname = struct.partition("_")
+            if not result_structs or result_structs[-1][0] != struct:
+                result_structs.append((struct, []))
+            if attrval is not None:
+                result_structs[-1][1].append((attrname, attrval))
+        return result_structs
+
     def is_parallel_corpus(self):
         # FIXME: This does not work if the script gets the query result
         # from frontend instead of redoing the query, since the frontend
@@ -319,11 +367,13 @@ class KorpExporter(object):
     def format_sentence(self, sentence):
         return self._opts["sentence_format"].format(
             corpus=self.get_sentence_corpus(sentence),
-            position=self.get_sentence_match_position(sentence),
+            match_pos=self.get_sentence_match_position(sentence),
             tokens=self.format_tokens(
                 self.get_sentence_tokens(sentence, None, None)),
             match=self.format_tokens(
                 self.get_sentence_tokens_match(sentence)),
+            match_open=self._opts["match_open"],
+            match_close=self._opts["match_close"],
             left_context=self.format_tokens(
                 self.get_sentence_tokens_left_context(sentence)),
             right_context=self.format_tokens(
@@ -358,9 +408,12 @@ class KorpExporter(object):
         # Allow for None in word (but where do they come from?)
         result = self._opts["word_format"].format(
             word=(token.get("word") or ""))
-        if self._opts.get("attrs"):
+        if self._opts.get("attrs") or self._structured_format:
             result = self._opts["token_format"].format(
-                word=result, attrs=self.format_token_attrs(token))
+                word=result,
+                attrs=self.format_token_attrs(token),
+                structs_open=self.format_token_structs_open(token),
+                structs_close=self.format_token_structs_close(token))
         return result
 
     def format_token_attrs(self, token):
@@ -372,6 +425,40 @@ class KorpExporter(object):
         attrname, value = attr_name_value
         return self._opts["attr_format"].format(name=attrname,
                                                 value=(value or ""))
+
+    def format_token_structs_open(self, token):
+        combine = self._get_option_bool("combine_token_structs")
+        return self._format_list(
+            self.get_token_structs_open(token, combine), "token_struct_open")
+
+    def format_token_struct_open(self, struct):
+        if self._get_option_bool("combine_token_structs"):
+            structname, attrlist = struct
+            attrstr = self.format_token_struct_attrs(attrlist)
+            opt_name = ("token_struct_open_"
+                        + ("attrs" if attrstr else "noattrs") + "_format")
+            return self._opts[opt_name].format(name=structname, attrs=attrstr)
+        else:
+            return self._opts["token_struct_open_format"].format(name=struct)
+
+    def format_token_struct_attrs(self, attrs):
+        return self._format_list(attrs, "token_struct_attr")
+
+    def format_token_struct_attr(self, attr):
+        name, value = attr
+        return self._opts["token_struct_attr_format"].format(
+            name=name, value=value)
+
+    def format_token_structs_close(self, token):
+        return self._format_list(
+            self.get_token_structs_close(
+                token, self._get_option_bool("combine_token_structs")),
+            "token_struct_close")
+
+    def format_token_struct_close(self, struct):
+        if self._get_option_bool("combine_token_structs"):
+            struct, _ = struct
+        return self._opts["token_struct_close_format"].format(name=struct)
 
 
 if __name__ == "__main__":
