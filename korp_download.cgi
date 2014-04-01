@@ -100,10 +100,11 @@ def print_header(obj):
     - download_content => Length to Content-Length
     """
     charset = obj.get("download_charset", "utf-8")
-    print "Content-Type: " + (obj.get("download_content_type", "text/plain")
-                              if "ERROR" not in obj
-                              else "text/plain")
-    print "Charset: " + charset
+    print ("Content-Type: "
+           + (obj.get("download_content_type", "text/plain")
+              if "ERROR" not in obj
+              else "text/plain")
+           + "; charset=" + charset)
     if "ERROR" not in obj:
         # Default filename 
         print ("Content-Disposition: attachment; filename="
