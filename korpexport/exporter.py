@@ -238,6 +238,10 @@ class KorpExporter(object):
     def get_sentence_struct_values(self, sentence):
         return [value for name, value in self.get_sentence_structs(sentence)]
 
+    def get_token_attrs(self, token):
+        return [(attrname, token.get(attrname) or "")
+                for attrname in self._opts.get("attrs", [])]
+
     def is_parallel_corpus(self):
         # FIXME: This does not work if the script gets the query result
         # from frontend instead of redoing the query, since the frontend
@@ -359,17 +363,6 @@ class KorpExporter(object):
                 word=result, attrs=self.format_token_attrs(token))
         return result
 
-    def get_token_attrs(self, token):
-        return [(attrname, token.get(attrname) or "")
-                for attrname in self._opts["attrs"]]
-
-    def format_token_attrs(self, token):
-        """Format the attributes of a token."""
-        return self._opts["attr_separator"].join(
-            self._opts["attr_format"].format(name=attrname,
-                                             value=(token.get(attrname) or ""))
-            for attrname in self._opts["attrs"])
-
     def format_token_attrs(self, token):
         """Format the attributes of a token."""
         return self._format_list(self.get_token_attrs(token), "attr",
@@ -377,10 +370,8 @@ class KorpExporter(object):
 
     def format_token_attr(self, attr_name_value):
         attrname, value = attr_name_value
-        return self._opts["attr_separator"].join(
-            self._opts["attr_format"].format(name=attrname,
-                                             value=(token.get(attrname) or ""))
-            for attrname in self._opts["attrs"])
+        return self._opts["attr_format"].format(name=attrname,
+                                                value=(value or ""))
 
 
 if __name__ == "__main__":
