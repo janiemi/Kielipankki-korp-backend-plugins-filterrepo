@@ -17,6 +17,10 @@ class KorpExporterVRT(KorpExporter):
     _filename_extension = ".vrt"
     _structured_format = True
     _option_defaults = {
+        "header_format": (u"<?xml version=\"1.0\" encoding=\"UTF-8\" "
+                          u"standalone=\"yes\"?>\n"
+                          u"<!-- Date: {date} -->\n"
+                          u"<!-- Query parameters: {params} -->\n"),
         "token_format": u"{structs_open}{word}\t{attrs}\n{structs_close}",
         "token_separator": "",
         "attr_separator": u"\t",

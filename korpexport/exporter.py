@@ -54,8 +54,8 @@ class KorpExporter(object):
     _option_defaults = {
         "newline": "\n",
         "headings": "",
-        "header_format": "{headings}",
-        "footer_format": "# {date}: {params}\n",
+        "header_format": u"{headings}",
+        "footer_format": u"",
         "word_format": u"{word}",
         "token_format": u"{word}[{attrs}]",
         "token_separator": u" ",
@@ -71,14 +71,16 @@ class KorpExporter(object):
         "aligned_separator": u" | ",
         "struct_format": u"{name}: {value}",
         "struct_separator": u"; ",
-        "token_struct_open_format": "",
-        "token_struct_close_format": "",
+        "token_struct_open_format": u"",
+        "token_struct_close_format": u"",
         "token_struct_open_separator": "",
         "token_struct_close_separator": "",
         "combine_token_structs": "False",
         "content_format": u"{header}{sentences}{footer}",
         "date_format": "%Y-%m-%d %H:%M:%S",
-        "params_format": (u"Corpora: {corpus}; CQP query: {cqp}; "
+        "params_format": (u"corpora: {corpus}; CQP query: {cqp}; "
+                          u"context: {defaultcontext}; "
+                          u"within: {defaultwithin}; sorting: {sort}; "
                           u"start: {start}; end: {end}")
         }
 
@@ -160,6 +162,9 @@ class KorpExporter(object):
                 urllib2.urlopen(korp_server_url,
                                 urllib.urlencode(self._query_params))
                 .read())
+            # Support "sort" in format params even if not specified
+            if "sort" not in self._query_params:
+                self._query_params["sort"] = "none"
         self._query_result = json.loads(query_result_json)
         self._opts = self._extract_options()
         logging.debug("opts: %s", self._opts)

@@ -27,6 +27,11 @@ class KorpExporterDelimited(KorpExporter):
             + (["aligned text"] if self.is_parallel_corpus() else [])
             + self._opts.get("structs", []))
 
+    def format_footer(self):
+        return (self.format_fields(["## Date:", self.format_date()])
+                + self.format_fields(["## Query parameters:",
+                                      self.format_params()]))
+
     def format_sentence(self, sentence):
         """Format a single delimited sentence.
 
