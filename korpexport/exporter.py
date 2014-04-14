@@ -11,7 +11,7 @@ import json
 import urllib, urllib2
 import logging
 
-from .queryresult import KorpQueryResult
+import korpexport.queryresult as qr
 
 
 __all__ = ['make_download_file',
@@ -120,7 +120,7 @@ class KorpExporter(object):
             # Support "sort" in format params even if not specified
             if "sort" not in self._query_params:
                 self._query_params["sort"] = "none"
-        self._query_result = KorpQueryResult(query_result_json)
+        self._query_result = json.loads(query_result_json)
         self._opts = self._extract_options()
         logging.debug("opts: %s", self._opts)
 
@@ -135,8 +135,8 @@ class KorpExporter(object):
                 if val in ["*", "+"]:
                     val = self._query_params[query_param_name].split(",")
                     if orig_val == "+":
-                        val = self._query_result.get_occurring_attrnames(
-                            val, query_result_struct_name)
+                        val = qr.get_occurring_attrnames(
+                            self._query_result, val, query_result_struct_name)
                 else:
                     val = val.split(",")
                 opts[opt_name] = val

@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 
+import korpexport.queryresult as qr
 from .formatter import KorpFormatter
 
 
@@ -24,7 +25,7 @@ class KorpFormatterDelimited(KorpFormatter):
     def format_headings(self):
         return self.format_fields(
             ["corpus", "position", "left context", "match", "right context"]
-            + (["aligned text"] if self._query_result.is_parallel_corpus()
+            + (["aligned text"] if qr.is_parallel_corpus(self._query_result)
                else [])
             + self._opts.get("structs", []))
 
@@ -44,17 +45,16 @@ class KorpFormatterDelimited(KorpFormatter):
         - tokens in right context, separated with spaces
         - for parallel corpora only: tokens in aligned sentence
         """
-        fields = ([self._query_result.get_sentence_corpus(sentence),
-                   str(self._query_result.get_sentence_match_position(
-                        sentence))]
-                  + [self.format_tokens(field_get_method(sentence))
-                     for field_get_method in
-                     [self._query_result.get_sentence_tokens_left_context,
-                      self._query_result.get_sentence_tokens_match,
-                      self._query_result.get_sentence_tokens_right_context]])
-        for _, tokens in self._query_result.get_aligned_sentences(sentence):
+        fields = ([qr.get_sentence_corpus(sentence),
+                   str(qr.get_sentence_match_position(sentence))]
+                  + [self.format_tokens(field_get_func(sentence))
+                     for field_get_func in
+                     [qr.get_sentence_tokens_left_context,
+                      qr.get_sentence_tokens_match,
+                      qr.get_sentence_tokens_right_context]])
+        for _, tokens in qr.get_aligned_sentences(sentence):
             fields.append(self.format_tokens(tokens))
-        fields.extend(self._query_result.get_sentence_struct_values(
+        fields.extend(qr.get_sentence_struct_values(
                 sentence, self._opts.get("structs", [])))
         return self.format_fields(fields)
 

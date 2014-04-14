@@ -6,6 +6,8 @@ from __future__ import absolute_import
 
 import time
 
+import korpexport.queryresult as qr
+
 __all__ = ["KorpFormatter"]
 
 
@@ -162,30 +164,29 @@ class KorpFormatter(object):
         return ""
 
     def format_sentences(self):
-        return self._format_list(self._query_result.get_sentences(), "sentence")
+        return self._format_list(qr.get_sentences(self._query_result),
+                                 "sentence")
 
     def format_sentence(self, sentence):
-        qresult = self._query_result
         return self._opts["sentence_format"].format(
-            corpus=qresult.get_sentence_corpus(sentence),
-            match_pos=qresult.get_sentence_match_position(sentence),
+            corpus=qr.get_sentence_corpus(sentence),
+            match_pos=qr.get_sentence_match_position(sentence),
             tokens=self.format_tokens(
-                qresult.get_sentence_tokens(sentence, None, None)),
+                qr.get_sentence_tokens(sentence, None, None)),
             match=self.format_tokens(
-                qresult.get_sentence_tokens_match(sentence)),
+                qr.get_sentence_tokens_match(sentence)),
             match_open=self._opts["match_open"],
             match_close=self._opts["match_close"],
             left_context=self.format_tokens(
-                qresult.get_sentence_tokens_left_context(sentence)),
+                qr.get_sentence_tokens_left_context(sentence)),
             right_context=self.format_tokens(
-                qresult.get_sentence_tokens_right_context(sentence)),
+                qr.get_sentence_tokens_right_context(sentence)),
             aligned=self.format_aligned_sentences(sentence),
             structs=self.format_structs(sentence))
 
     def format_aligned_sentences(self, sentence):
-        return self._format_list(
-            self._query_result.get_aligned_sentences(sentence), "aligned",
-            self.format_aligned_sentence)
+        return self._format_list(qr.get_aligned_sentences(sentence), "aligned",
+                                 self.format_aligned_sentence)
 
     def format_aligned_sentence(self, aligned_sentence):
         align_key, sentence = aligned_sentence
@@ -195,8 +196,7 @@ class KorpFormatter(object):
 
     def format_structs(self, sentence):
         return self._format_list(
-            self._query_result.get_sentence_structs(
-                sentence, self._opts.get("structs", [])),
+            qr.get_sentence_structs(sentence, self._opts.get("structs", [])),
             "struct")
 
     def format_struct(self, struct):
@@ -224,8 +224,7 @@ class KorpFormatter(object):
     def format_token_attrs(self, token):
         """Format the attributes of a token."""
         return self._format_list(
-            self._query_result.get_token_attrs(
-                token, self._opts.get("attrs", [])), "attr",
+            qr.get_token_attrs(token, self._opts.get("attrs", [])), "attr",
             self.format_token_attr)
 
     def format_token_attr(self, attr_name_value):
@@ -236,7 +235,7 @@ class KorpFormatter(object):
     def format_token_structs_open(self, token):
         combine = self._get_option_bool("combine_token_structs")
         return self._format_list(
-            self._query_result.get_token_structs_open(token, combine),
+            qr.get_token_structs_open(token, combine),
             "token_struct_open")
 
     def format_token_struct_open(self, struct):
@@ -259,7 +258,7 @@ class KorpFormatter(object):
 
     def format_token_structs_close(self, token):
         return self._format_list(
-            self._query_result.get_token_structs_close(
+            qr.get_token_structs_close(
                 token, self._get_option_bool("combine_token_structs")),
             "token_struct_close")
 

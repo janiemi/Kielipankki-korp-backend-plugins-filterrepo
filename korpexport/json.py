@@ -6,6 +6,7 @@ from __future__ import absolute_import
 
 import json
 
+import korpexport.queryresult as qr
 from .formatter import KorpFormatter
 
 
@@ -24,7 +25,7 @@ class KorpFormatterJSON(KorpFormatter):
 
     def format_content(self):
         """Convert query_result to JSON."""
-        return (json.dumps(self._query_result.get_sentences(),
+        return (json.dumps(qr.get_sentences(self._query_result),
                            sort_keys=self._get_option_bool("sort_keys"),
                            indent=self._get_option_int("indent"))
                 + "\n")
