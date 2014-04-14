@@ -6,7 +6,7 @@ from __future__ import absolute_import
 
 import json
 
-from .exporter import KorpFormatter
+from .formatter import KorpFormatter
 
 
 class KorpFormatterJSON(KorpFormatter):
