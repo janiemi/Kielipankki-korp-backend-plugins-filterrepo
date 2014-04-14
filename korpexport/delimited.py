@@ -5,13 +5,13 @@
 from __future__ import absolute_import
 
 import korpexport.queryresult as qr
-from .formatter import KorpFormatter
+from .formatter import KorpExportFormatter
 
 
-__all__ = ['KorpFormatterCSV', 'KorpFormatterTSV']
+__all__ = ['KorpExportFormatterCSV', 'KorpExportFormatterTSV']
 
 
-class KorpFormatterDelimited(KorpFormatter):
+class KorpExportFormatterDelimited(KorpExportFormatter):
 
     _option_defaults = {
         "delimiter": u",",
@@ -20,21 +20,21 @@ class KorpFormatterDelimited(KorpFormatter):
         }
 
     def __init__(self, *args, **kwargs):
-        KorpFormatter.__init__(self, *args, **kwargs)
+        KorpExportFormatter.__init__(self, *args, **kwargs)
 
-    def format_headings(self):
-        return self.format_fields(
+    def _format_headings(self):
+        return self._format_fields(
             ["corpus", "position", "left context", "match", "right context"]
             + (["aligned text"] if qr.is_parallel_corpus(self._query_result)
                else [])
             + self._opts.get("structs", []))
 
-    def format_footer(self):
-        return (self.format_fields(["## Date:", self.format_date()])
-                + self.format_fields(["## Query parameters:",
-                                      self.format_params()]))
+    def _format_footer(self):
+        return (self._format_fields(["## Date:", self._format_date()])
+                + self._format_fields(["## Query parameters:",
+                                       self._format_params()]))
 
-    def format_sentence(self, sentence):
+    def _format_sentence(self, sentence):
         """Format a single delimited sentence.
 
         The result contains the following fields:
@@ -47,18 +47,18 @@ class KorpFormatterDelimited(KorpFormatter):
         """
         fields = ([qr.get_sentence_corpus(sentence),
                    str(qr.get_sentence_match_position(sentence))]
-                  + [self.format_tokens(field_get_func(sentence))
+                  + [self._format_tokens(field_get_func(sentence))
                      for field_get_func in
                      [qr.get_sentence_tokens_left_context,
                       qr.get_sentence_tokens_match,
                       qr.get_sentence_tokens_right_context]])
         for _, tokens in qr.get_aligned_sentences(sentence):
-            fields.append(self.format_tokens(tokens))
+            fields.append(self._format_tokens(tokens))
         fields.extend(qr.get_sentence_struct_values(
                 sentence, self._opts.get("structs", [])))
-        return self.format_fields(fields)
+        return self._format_fields(fields)
 
-    def format_fields(self, fields):
+    def _format_fields(self, fields):
         """Format fields according to the options in self._opts.
 
         self._opts may contain the following keys:
@@ -75,11 +75,12 @@ class KorpFormatterDelimited(KorpFormatter):
                 + "\n")
 
 
-class KorpFormatterCSV(KorpFormatterDelimited):
+class KorpExportFormatterCSV(KorpExportFormatterDelimited):
 
-    _formats = ["csv"]
-    _mime_type = "text/csv"
-    _filename_extension = ".csv"
+    formats = ["csv"]
+    mime_type = "text/csv"
+    filename_extension = ".csv"
+
     _option_defaults = {
         "newline": "\r\n",
         "delimiter": u",",
@@ -88,18 +89,19 @@ class KorpFormatterCSV(KorpFormatterDelimited):
         }
 
     def __init__(self, *args, **kwargs):
-        KorpFormatterDelimited.__init__(self, *args, **kwargs)
+        KorpExportFormatterDelimited.__init__(self, *args, **kwargs)
 
 
-class KorpFormatterTSV(KorpFormatterDelimited):
+class KorpExportFormatterTSV(KorpExportFormatterDelimited):
 
-    _formats = ["tsv"]
-    _mime_type = "text/tsv"
-    _filename_extension = ".tsv"
+    formats = ["tsv"]
+    mime_type = "text/tsv"
+    filename_extension = ".tsv"
+
     _option_defaults = {
         "delimiter": u"\t",
         "quote": u"",
         "replace_quote": u""}
 
     def __init__(self, *args, **kwargs):
-        KorpFormatterDelimited.__init__(self, *args, **kwargs)
+        KorpExportFormatterDelimited.__init__(self, *args, **kwargs)

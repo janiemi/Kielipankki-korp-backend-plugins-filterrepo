@@ -4,26 +4,27 @@
 
 from __future__ import absolute_import
 
-from .formatter import KorpFormatter
+from .formatter import KorpExportFormatter
 
 
-__all__ = ["KorpFormatterVRT"]
+__all__ = ["KorpExportFormatterVRT"]
 
 
-class KorpFormatterVRT(KorpFormatter):
+class KorpExportFormatterVRT(KorpExportFormatter):
 
-    _formats = ["vrt"]
-    _mime_type = "text/plain"
-    _filename_extension = ".vrt"
-    _structured_format = True
+    formats = ["vrt"]
+    mime_type = "text/plain"
+    filename_extension = ".vrt"
+    structured_format = True
+
     _option_defaults = {
         "header_format": (u"<?xml version=\"1.0\" encoding=\"UTF-8\" "
                           u"standalone=\"yes\"?>\n"
                           u"<!-- Date: {date} -->\n"
                           u"<!-- Query parameters: {params} -->\n"),
         "token_format": u"{structs_open}{word}\t{attrs}\n{structs_close}",
-        "token_separator": "",
-        "attr_separator": u"\t",
+        "token_sep": "",
+        "attr_sep": u"\t",
         # FIXME: This adds MATCH tags before any opening tags and
         # aftore any closing tags in match.
         "sentence_format": (u"{left_context}<MATCH position=\"{match_pos}\">\n"
@@ -32,12 +33,12 @@ class KorpFormatterVRT(KorpFormatter):
         "token_struct_open_attrs_format": u"<{name} {attrs}>\n",
         "token_struct_close_format": u"</{name}>\n",
         "token_struct_attr_format": u"{name}=\"{value}\"",
-        "token_struct_attr_separator": u" ",
+        "token_struct_attr_sep": u" ",
         "combine_token_structs": "True"
         }
 
     def __init__(self, *args, **kwargs):
-        KorpFormatter.__init__(self, *args, **kwargs)
+        KorpExportFormatter.__init__(self, *args, **kwargs)
 
     # FIXME: Close open tags if the struct attribute value for a
     # sentence is different from the currently open one. Maybe also

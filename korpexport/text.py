@@ -4,14 +4,15 @@
 
 from __future__ import absolute_import
 
-from .formatter import KorpFormatter
+from .formatter import KorpExportFormatter
 
 
-class KorpFormatterText(KorpFormatter):
+class KorpExportFormatterText(KorpExportFormatter):
 
-    _formats = ["text"]
-    _mime_type = "text/plain"
-    _filename_extension = ".txt"
+    formats = ["text"]
+    mime_type = "text/plain"
+    filename_extension = ".txt"
+
     _option_defaults = {
         "header_format": u"## Date: {date}\n## Query parameters: {params}\n",
         "footer_format": "",
@@ -20,7 +21,8 @@ class KorpFormatterText(KorpFormatter):
                             u"{right_context} || {structs}\n"),
         "match_open": " <<< ",
         "match_close": " >>> ",
-        "struct_separator": " | "}
+        "struct_sep": " | "
+        }
 
     def __init__(self, *args, **kwargs):
-        KorpFormatter.__init__(self, *args, **kwargs)
+        KorpExportFormatter.__init__(self, *args, **kwargs)

@@ -7,25 +7,26 @@ from __future__ import absolute_import
 import json
 
 import korpexport.queryresult as qr
-from .formatter import KorpFormatter
+from .formatter import KorpExportFormatter
 
 
-class KorpFormatterJSON(KorpFormatter):
+class KorpExportFormatterJSON(KorpExportFormatter):
 
-    _formats = ['json']
-    _mime_type = 'application/json'
-    _filename_extension = '.json'
+    formats = ['json']
+    mime_type = 'application/json'
+    filename_extension = '.json'
+
     _option_defaults = {
         "sort_keys": "True",
         "indent": "4"
         }
 
     def __init__(self, *args, **kwargs):
-        KorpFormatter.__init__(self, *args, **kwargs)
+        KorpExportFormatter.__init__(self, *args, **kwargs)
 
-    def format_content(self):
+    def _format_content(self):
         """Convert query_result to JSON."""
         return (json.dumps(qr.get_sentences(self._query_result),
-                           sort_keys=self._get_option_bool("sort_keys"),
-                           indent=self._get_option_int("indent"))
+                           sort_keys=self.get_option_bool("sort_keys"),
+                           indent=self.get_option_int("indent"))
                 + "\n")

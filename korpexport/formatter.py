@@ -8,13 +8,14 @@ import time
 
 import korpexport.queryresult as qr
 
-__all__ = ["KorpFormatter"]
+__all__ = ["KorpExportFormatter"]
 
 
-class KorpFormatterMetaclass(type):
+class _KorpExportFormatterMetaclass(type):
 
     def __init__(self, classname, bases, attrs):
-        super(KorpFormatterMetaclass, self).__init__(classname, bases, attrs)
+        super(_KorpExportFormatterMetaclass, self).__init__(classname, bases,
+                                                            attrs)
         self._make_option_defaults(bases)
 
     def _make_option_defaults(self, base_classes):
@@ -27,15 +28,16 @@ class KorpFormatterMetaclass(type):
         self._option_defaults = new_option_defaults
 
 
-class KorpFormatter(object):
+class KorpExportFormatter(object):
 
-    __metaclass__ = KorpFormatterMetaclass
+    __metaclass__ = _KorpExportFormatterMetaclass
 
-    _formats = []
-    _download_charset = "utf-8"
-    _mime_type = "application/unknown"
-    _structured_format = False
-    _filename_extension = ""
+    formats = []
+    download_charset = "utf-8"
+    mime_type = "application/unknown"
+    structured_format = False
+    filename_extension = ""
+
     _option_defaults = {
         "newline": "\n",
         "headings": "",
@@ -43,23 +45,23 @@ class KorpFormatter(object):
         "footer_format": u"",
         "word_format": u"{word}",
         "token_format": u"{word}[{attrs}]",
-        "token_separator": u" ",
+        "token_sep": u" ",
         "attr_format": u"{value}",
-        "attr_separator": u";",
+        "attr_sep": u";",
         "sentence_format": (u"{corpus} {match_pos}: {left_context}"
                             u"{match_open}{match}{match_close}"
                             u"{right_context}\n"),
         "match_open": u"",
         "match_close": u"",
-        "sentence_separator": u"",
+        "sentence_sep": u"",
         "aligned_format": u"{sentence}",
-        "aligned_separator": u" | ",
+        "aligned_sep": u" | ",
         "struct_format": u"{name}: {value}",
-        "struct_separator": u"; ",
+        "struct_sep": u"; ",
         "token_struct_open_format": u"",
         "token_struct_close_format": u"",
-        "token_struct_open_separator": "",
-        "token_struct_close_separator": "",
+        "token_struct_open_sep": "",
+        "token_struct_close_sep": "",
         "combine_token_structs": "False",
         "content_format": u"{header}{sentences}{footer}",
         "date_format": "%Y-%m-%d %H:%M:%S",
@@ -80,11 +82,11 @@ class KorpFormatter(object):
     def get_options(self):
         return self._opts
 
-    def _get_option_bool(self, optname):
+    def get_option_bool(self, optname):
         return (self._opts[optname].lower()
                 not in ["false", "no", "off", "0", ""])
 
-    def _get_option_int(self, optname):
+    def get_option_int(self, optname):
         value = None
         try:
             value = int(self._opts[optname])
@@ -99,7 +101,7 @@ class KorpFormatter(object):
         self._query_result = query_result
         self._query_params = query_params or {}
         self._opts.update(options or {})
-        return self._convert_newlines(self.format_content())
+        return self._convert_newlines(self._format_content())
 
     def _convert_newlines(self, text):
         if self._opts["newline"] != "\n":
@@ -108,8 +110,8 @@ class KorpFormatter(object):
             return text
 
     def _format_list(self, list_, type_name, format_fn=None):
-        format_fn = format_fn or getattr(self, "format_" + type_name)
-        return self._opts[type_name + "_separator"].join(
+        format_fn = format_fn or getattr(self, "_format_" + type_name)
+        return self._opts[type_name + "_sep"].join(
             format_fn(elem) for elem in list_)
 
     def _format_part(self, format_name, arg_fn_args, **format_arg_fns):
@@ -126,143 +128,143 @@ class KorpFormatter(object):
                        for (name, format_arg_fn) in format_arg_fns.iteritems()]
         return format_str.format(**format_args)
 
-    def format_content(self):
+    def _format_content(self):
         return self._opts["content_format"].format(
-            params=self.format_params(),
+            params=self._format_params(),
             # Also allow format references {param[name]}
             param=self._query_params,
-            date=self.format_date(),
-            header=self.format_header(),
-            sentences=self.format_sentences(),
-            footer=self.format_footer())
+            date=self._format_date(),
+            header=self._format_header(),
+            sentences=self._format_sentences(),
+            footer=self._format_footer())
 
-    def format_date(self):
+    def _format_date(self):
         return time.strftime(self._opts["date_format"])
 
-    def format_params(self):
+    def _format_params(self):
         # Allow format references {name} as well as {param[name]}
         return self._opts["params_format"].format(
             param=self._query_params,
             **self._query_params)
 
-    def format_header(self):
+    def _format_header(self):
         return self._format_header_footer("header")
 
-    def format_footer(self):
+    def _format_footer(self):
         return self._format_header_footer("footer")
 
     def _format_header_footer(self, type_):
-        headings = self.format_headings() if self._opts["headings"] else ""
+        headings = self._format_headings() if self._opts["headings"] else ""
         return self._opts[type_ + "_format"].format(
             headings=headings,
-            params=self.format_params(),
+            params=self._format_params(),
             # Also allow format references {param[name]}
             param=self._query_params,
-            date=self.format_date())
+            date=self._format_date())
 
-    def format_headings(self):
+    def _format_headings(self):
         return ""
 
-    def format_sentences(self):
+    def _format_sentences(self):
         return self._format_list(qr.get_sentences(self._query_result),
                                  "sentence")
 
-    def format_sentence(self, sentence):
+    def _format_sentence(self, sentence):
         return self._opts["sentence_format"].format(
             corpus=qr.get_sentence_corpus(sentence),
             match_pos=qr.get_sentence_match_position(sentence),
-            tokens=self.format_tokens(
+            tokens=self._format_tokens(
                 qr.get_sentence_tokens(sentence, None, None)),
-            match=self.format_tokens(
+            match=self._format_tokens(
                 qr.get_sentence_tokens_match(sentence)),
             match_open=self._opts["match_open"],
             match_close=self._opts["match_close"],
-            left_context=self.format_tokens(
+            left_context=self._format_tokens(
                 qr.get_sentence_tokens_left_context(sentence)),
-            right_context=self.format_tokens(
+            right_context=self._format_tokens(
                 qr.get_sentence_tokens_right_context(sentence)),
-            aligned=self.format_aligned_sentences(sentence),
-            structs=self.format_structs(sentence))
+            aligned=self._format_aligned_sentences(sentence),
+            structs=self._format_structs(sentence))
 
-    def format_aligned_sentences(self, sentence):
+    def _format_aligned_sentences(self, sentence):
         return self._format_list(qr.get_aligned_sentences(sentence), "aligned",
-                                 self.format_aligned_sentence)
+                                 self._format_aligned_sentence)
 
-    def format_aligned_sentence(self, aligned_sentence):
+    def _format_aligned_sentence(self, aligned_sentence):
         align_key, sentence = aligned_sentence
         return self._opts["aligned_format"].format(
             align_key=align_key,
             sentence=sentence)
 
-    def format_structs(self, sentence):
+    def _format_structs(self, sentence):
         return self._format_list(
             qr.get_sentence_structs(sentence, self._opts.get("structs", [])),
             "struct")
 
-    def format_struct(self, struct):
+    def _format_struct(self, struct):
         return self._opts["struct_format"].format(
             name=struct[0],
             value=struct[1])
 
-    def format_tokens(self, tokens):
+    def _format_tokens(self, tokens):
         """Format the tokens of a single sentence."""
         return self._format_list(tokens, "token")
 
-    def format_token(self, token):
+    def _format_token(self, token):
         """Format a single token, possibly with attributes."""
         # Allow for None in word (but where do they come from?)
         result = self._opts["word_format"].format(
             word=(token.get("word") or ""))
-        if self._opts.get("attrs") or self._structured_format:
+        if self._opts.get("attrs") or self.structured_format:
             result = self._opts["token_format"].format(
                 word=result,
-                attrs=self.format_token_attrs(token),
-                structs_open=self.format_token_structs_open(token),
-                structs_close=self.format_token_structs_close(token))
+                attrs=self._format_token_attrs(token),
+                structs_open=self._format_token_structs_open(token),
+                structs_close=self._format_token_structs_close(token))
         return result
 
-    def format_token_attrs(self, token):
+    def _format_token_attrs(self, token):
         """Format the attributes of a token."""
         return self._format_list(
             qr.get_token_attrs(token, self._opts.get("attrs", [])), "attr",
-            self.format_token_attr)
+            self._format_token_attr)
 
-    def format_token_attr(self, attr_name_value):
+    def _format_token_attr(self, attr_name_value):
         attrname, value = attr_name_value
         return self._opts["attr_format"].format(name=attrname,
                                                 value=(value or ""))
 
-    def format_token_structs_open(self, token):
-        combine = self._get_option_bool("combine_token_structs")
+    def _format_token_structs_open(self, token):
+        combine = self.get_option_bool("combine_token_structs")
         return self._format_list(
             qr.get_token_structs_open(token, combine),
             "token_struct_open")
 
-    def format_token_struct_open(self, struct):
-        if self._get_option_bool("combine_token_structs"):
+    def _format_token_struct_open(self, struct):
+        if self.get_option_bool("combine_token_structs"):
             structname, attrlist = struct
-            attrstr = self.format_token_struct_attrs(attrlist)
+            attrstr = self._format_token_struct_attrs(attrlist)
             opt_name = ("token_struct_open_"
                         + ("attrs" if attrstr else "noattrs") + "_format")
             return self._opts[opt_name].format(name=structname, attrs=attrstr)
         else:
             return self._opts["token_struct_open_format"].format(name=struct)
 
-    def format_token_struct_attrs(self, attrs):
+    def _format_token_struct_attrs(self, attrs):
         return self._format_list(attrs, "token_struct_attr")
 
-    def format_token_struct_attr(self, attr):
+    def _format_token_struct_attr(self, attr):
         name, value = attr
         return self._opts["token_struct_attr_format"].format(
             name=name, value=value)
 
-    def format_token_structs_close(self, token):
+    def _format_token_structs_close(self, token):
         return self._format_list(
             qr.get_token_structs_close(
-                token, self._get_option_bool("combine_token_structs")),
+                token, self.get_option_bool("combine_token_structs")),
             "token_struct_close")
 
-    def format_token_struct_close(self, struct):
-        if self._get_option_bool("combine_token_structs"):
+    def _format_token_struct_close(self, struct):
+        if self.get_option_bool("combine_token_structs"):
             struct, _ = struct
         return self._opts["token_struct_close_format"].format(name=struct)

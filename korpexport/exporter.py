@@ -50,13 +50,13 @@ class KorpExporter(object):
         self._formatter = self._formatter or self._get_formatter(**kwargs)
         self.process_query(korp_server_url)
         logging.debug('formatter: %s', self._formatter)
-        result["download_charset"] = self._formatter._download_charset
+        result["download_charset"] = self._formatter.download_charset
         result["download_content"] = (
             self._formatter.make_download_content(
                 self._query_result, self._query_params, self._opts)
-            .encode(self._formatter._download_charset))
-        result["download_content_type"] = self._formatter._mime_type
-        result["download_filename"] = self.get_filename()
+            .encode(self._formatter.download_charset))
+        result["download_content_type"] = self._formatter.mime_type
+        result["download_filename"] = self._get_filename()
         logging.debug('make_download_file result: %s', result)
         return result
 
@@ -83,7 +83,7 @@ class KorpExporter(object):
             for name in dir(module):
                 try:
                     module_class = getattr(module, name)
-                    if format_name in module_class._formats:
+                    if format_name in module_class.formats:
                         return module_class
                 except AttributeError as e:
                     pass
@@ -112,7 +112,7 @@ class KorpExporter(object):
             # are associated with information on opening and closing
             # those structures. Param "show_struct" only gives us
             # struct attribute values for a whole sentence.
-            if self._formatter._structured_format:
+            if self._formatter.structured_format:
                 self._query_params["show"] += self._query_params["show_struct"]
             logging.debug("query_params: %s", self._query_params)
             query_result_json = (
@@ -149,11 +149,11 @@ class KorpExporter(object):
             opts[opt_name] = self._form.get(opt_name, default_val)
         return opts
 
-    def get_filename(self):
+    def _get_filename(self):
         return self._form.get(
             "filename",
             self._filename_base + time.strftime("%Y%m%d%H%M%S")
-            + self._formatter._filename_extension)
+            + self._formatter.filename_extension)
 
 
 if __name__ == "__main__":
