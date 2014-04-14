@@ -74,6 +74,8 @@ class KorpExporter(object):
     def _find_formatter_class(self, format_name):
         pkgpath = os.path.dirname(__file__)
         for _, module_name, _ in pkgutil.iter_modules([pkgpath]):
+            if module_name in ['exporter', 'formatter', 'queryresult']:
+                continue
             try:
                 module = __import__(module_name, globals())
             except ImportError as e:
