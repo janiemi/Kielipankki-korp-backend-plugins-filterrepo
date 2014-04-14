@@ -4,13 +4,13 @@
 
 from __future__ import absolute_import
 
-from .exporter import KorpExporter
+from .exporter import KorpFormatter
 
 
-__all__ = ["KorpExporterVRT"]
+__all__ = ["KorpFormatterVRT"]
 
 
-class KorpExporterVRT(KorpExporter):
+class KorpFormatterVRT(KorpFormatter):
 
     _formats = ["vrt"]
     _mime_type = "text/plain"
@@ -37,7 +37,7 @@ class KorpExporterVRT(KorpExporter):
         }
 
     def __init__(self, *args, **kwargs):
-        KorpExporter.__init__(self, *args, **kwargs)
+        KorpFormatter.__init__(self, *args, **kwargs)
 
     # FIXME: Close open tags if the struct attribute value for a
     # sentence is different from the currently open one. Maybe also

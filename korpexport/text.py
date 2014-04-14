@@ -4,10 +4,10 @@
 
 from __future__ import absolute_import
 
-from .exporter import KorpExporter
+from .exporter import KorpFormatter
 
 
-class KorpExporterText(KorpExporter):
+class KorpFormatterText(KorpFormatter):
 
     _formats = ["text"]
     _mime_type = "text/plain"
@@ -23,4 +23,4 @@ class KorpExporterText(KorpExporter):
         "struct_separator": " | "}
 
     def __init__(self, *args, **kwargs):
-        KorpExporter.__init__(self, *args, **kwargs)
+        KorpFormatter.__init__(self, *args, **kwargs)

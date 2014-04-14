@@ -4,13 +4,13 @@
 
 from __future__ import absolute_import
 
-from .exporter import KorpExporter
+from .exporter import KorpFormatter
 
 
-__all__ = ['KorpExporterCSV', 'KorpExporterTSV']
+__all__ = ['KorpFormatterCSV', 'KorpFormatterTSV']
 
 
-class KorpExporterDelimited(KorpExporter):
+class KorpFormatterDelimited(KorpFormatter):
 
     _option_defaults = {
         "delimiter": u",",
@@ -19,12 +19,13 @@ class KorpExporterDelimited(KorpExporter):
         }
 
     def __init__(self, *args, **kwargs):
-        KorpExporter.__init__(self, *args, **kwargs)
+        KorpFormatter.__init__(self, *args, **kwargs)
 
     def format_headings(self):
         return self.format_fields(
             ["corpus", "position", "left context", "match", "right context"]
-            + (["aligned text"] if self.is_parallel_corpus() else [])
+            + (["aligned text"] if self._query_result.is_parallel_corpus()
+               else [])
             + self._opts.get("structs", []))
 
     def format_footer(self):
@@ -43,16 +44,18 @@ class KorpExporterDelimited(KorpExporter):
         - tokens in right context, separated with spaces
         - for parallel corpora only: tokens in aligned sentence
         """
-        fields = ([self.get_sentence_corpus(sentence),
-                   str(self.get_sentence_match_position(sentence))]
+        fields = ([self._query_result.get_sentence_corpus(sentence),
+                   str(self._query_result.get_sentence_match_position(
+                        sentence))]
                   + [self.format_tokens(field_get_method(sentence))
                      for field_get_method in
-                     [self.get_sentence_tokens_left_context,
-                      self.get_sentence_tokens_match,
-                      self.get_sentence_tokens_right_context]])
-        for _, tokens in self.get_aligned_sentences(sentence):
+                     [self._query_result.get_sentence_tokens_left_context,
+                      self._query_result.get_sentence_tokens_match,
+                      self._query_result.get_sentence_tokens_right_context]])
+        for _, tokens in self._query_result.get_aligned_sentences(sentence):
             fields.append(self.format_tokens(tokens))
-        fields.extend(self.get_sentence_struct_values(sentence))
+        fields.extend(self._query_result.get_sentence_struct_values(
+                sentence, self._opts.get("structs", [])))
         return self.format_fields(fields)
 
     def format_fields(self, fields):
@@ -72,7 +75,7 @@ class KorpExporterDelimited(KorpExporter):
                 + "\n")
 
 
-class KorpExporterCSV(KorpExporterDelimited):
+class KorpFormatterCSV(KorpFormatterDelimited):
 
     _formats = ["csv"]
     _mime_type = "text/csv"
@@ -85,10 +88,10 @@ class KorpExporterCSV(KorpExporterDelimited):
         }
 
     def __init__(self, *args, **kwargs):
-        KorpExporterDelimited.__init__(self, *args, **kwargs)
+        KorpFormatterDelimited.__init__(self, *args, **kwargs)
 
 
-class KorpExporterTSV(KorpExporterDelimited):
+class KorpFormatterTSV(KorpFormatterDelimited):
 
     _formats = ["tsv"]
     _mime_type = "text/tsv"
@@ -99,4 +102,4 @@ class KorpExporterTSV(KorpExporterDelimited):
         "replace_quote": u""}
 
     def __init__(self, *args, **kwargs):
-        KorpExporterDelimited.__init__(self, *args, **kwargs)
+        KorpFormatterDelimited.__init__(self, *args, **kwargs)

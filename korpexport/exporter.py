@@ -11,13 +11,16 @@ import json
 import urllib, urllib2
 import logging
 
+__all__ = ['make_download_file',
+           'KorpExportError',
+           'KorpExporter',
+           'KorpFormatter']
 
-__all__ = ['make_download_file', 'KorpExportError', 'KorpExporter']
 
-
-def make_download_file(*args, **kwargs):
+def make_download_file(form, korp_server_url, **kwargs):
     """Format query results and return them in a downloadable format."""
-    return KorpExporter.make_download_file(*args, **kwargs)
+    exporter = KorpExporter(form, **kwargs)
+    return exporter.make_download_file(korp_server_url, **kwargs)
 
 
 class KorpExportError(Exception):
@@ -25,98 +28,48 @@ class KorpExportError(Exception):
     pass
 
 
-class KorpExporterMetaclass(type):
-
-    def __init__(self, classname, bases, attrs):
-        super(KorpExporterMetaclass, self).__init__(classname, bases, attrs)
-        self._make_option_defaults(bases)
-
-    def _make_option_defaults(self, base_classes):
-        new_option_defaults = {}
-        for cls in list(base_classes) + [self]:
-            try:
-                new_option_defaults.update(cls._option_defaults)
-            except AttributeError:
-                pass
-        self._option_defaults = new_option_defaults
-
-
 class KorpExporter(object):
 
-    __metaclass__ = KorpExporterMetaclass
-
-    _formats = []
-    _download_charset = "utf-8"
-    _mime_type = "application/unknown"
-    _structured_format = False
-    _filename_extension = ""
     _filename_base_default = "korp_kwic_"
-    _option_defaults = {
-        "newline": "\n",
-        "headings": "",
-        "header_format": u"{headings}",
-        "footer_format": u"",
-        "word_format": u"{word}",
-        "token_format": u"{word}[{attrs}]",
-        "token_separator": u" ",
-        "attr_format": u"{value}",
-        "attr_separator": u";",
-        "sentence_format": (u"{corpus} {match_pos}: {left_context}"
-                            u"{match_open}{match}{match_close}"
-                            u"{right_context}\n"),
-        "match_open": u"",
-        "match_close": u"",
-        "sentence_separator": u"",
-        "aligned_format": u"{sentence}",
-        "aligned_separator": u" | ",
-        "struct_format": u"{name}: {value}",
-        "struct_separator": u"; ",
-        "token_struct_open_format": u"",
-        "token_struct_close_format": u"",
-        "token_struct_open_separator": "",
-        "token_struct_close_separator": "",
-        "combine_token_structs": "False",
-        "content_format": u"{header}{sentences}{footer}",
-        "date_format": "%Y-%m-%d %H:%M:%S",
-        "params_format": (u"corpora: {corpus}; CQP query: {cqp}; "
-                          u"context: {defaultcontext}; "
-                          u"within: {defaultwithin}; sorting: {sort}; "
-                          u"start: {start}; end: {end}")
-        }
 
-    def __init__(self, format_name, form, options=None, filename_base=None):
-        self._format_name = format_name
+    def __init__(self, form, options=None, filename_base=None):
         self._form = form
-        self._option_defaults = self.__class__._option_defaults
-        self._option_defaults.update(options or {})
         self._filename_base = filename_base or self._filename_base_default
-        self._opts = {}
+        self._opts = options or {}
         self._query_params = {}
-        self._query_result = {}
+        self._query_result = None
+        self._formatter = None
 
-    @classmethod
-    def make_download_file(cls, form, korp_server_url, **kwargs):
+    def make_download_file(self, korp_server_url, **kwargs):
         """Format query results and return them in a downloadable format."""
         result = {}
-        exporter = cls._get_exporter(form, **kwargs)
-        logging.debug('exporter: %s', exporter)
-        exporter.process_query(korp_server_url)
-        result["download_charset"] = exporter._download_charset
-        result["download_content"] = (exporter.make_download_content()
-                                      .encode(exporter._download_charset))
-        result["download_content_type"] = exporter._mime_type
-        result["download_filename"] = exporter.get_filename()
+        if "form" in kwargs:
+            self._form = kwargs["form"]
+        self._formatter = self._formatter or self._get_formatter(**kwargs)
+        self.process_query(korp_server_url)
+        logging.debug('formatter: %s', self._formatter)
+        result["download_charset"] = self._formatter._download_charset
+        result["download_content"] = (
+            self._formatter.make_download_content(
+                self._query_result, self._query_params, self._opts)
+            .encode(self._formatter._download_charset))
+        result["download_content_type"] = self._formatter._mime_type
+        result["download_filename"] = self.get_filename()
         logging.debug('make_download_file result: %s', result)
         return result
 
-    @classmethod
-    def _get_exporter(cls, form, **kwargs):
-        format_name = form.get("format", "json").lower()
-        exporter_class = cls._find_exporter_class(format_name)
-        return exporter_class(format_name, form, **kwargs)
+    def _get_formatter(self, **kwargs):
+        format_name = self._form.get("format", "json").lower()
+        formatter_class = self._find_formatter_class(format_name)
+        # Options passed to _get_formatter() override those passed to
+        # the KorpExporter constructor
+        opts = {}
+        opts.update(self._opts)
+        opts.update(kwargs.get("options", {}))
+        kwargs["options"] = opts
+        return formatter_class(format_name, **kwargs)
 
-    @classmethod
-    def _find_exporter_class(cls, format_name):
+    def _find_formatter_class(self, format_name):
         pkgpath = os.path.dirname(__file__)
         for _, module_name, _ in pkgutil.iter_modules([pkgpath]):
             try:
@@ -130,7 +83,7 @@ class KorpExporter(object):
                         return module_class
                 except AttributeError as e:
                     pass
-        raise KorpExportError("No exporter found for format '{0}'"
+        raise KorpExportError("No formatter found for format '{0}'"
                               .format(format_name))
 
     def process_query(self, korp_server_url, query_params=None):
@@ -155,7 +108,7 @@ class KorpExporter(object):
             # are associated with information on opening and closing
             # those structures. Param "show_struct" only gives us
             # struct attribute values for a whole sentence.
-            if self._structured_format:
+            if self._formatter._structured_format:
                 self._query_params["show"] += self._query_params["show_struct"]
             logging.debug("query_params: %s", self._query_params)
             query_result_json = (
@@ -165,7 +118,7 @@ class KorpExporter(object):
             # Support "sort" in format params even if not specified
             if "sort" not in self._query_params:
                 self._query_params["sort"] = "none"
-        self._query_result = json.loads(query_result_json)
+        self._query_result = KorpQueryResult(query_result_json)
         self._opts = self._extract_options()
         logging.debug("opts: %s", self._opts)
 
@@ -180,51 +133,47 @@ class KorpExporter(object):
                 if val in ["*", "+"]:
                     val = self._query_params[query_param_name].split(",")
                     if orig_val == "+":
-                        val = get_occurring_keys(val, query_result_struct_name)
+                        val = self._query_result.get_occurring_attrnames(
+                            val, query_result_struct_name)
                 else:
                     val = val.split(",")
                 opts[opt_name] = val
 
-        def get_occurring_keys(keys, struct_name):
-            # FIXME: This does not take into account attributes in aligned
-            # sentences
-            occurring_keys = set()
-            for sent in self._query_result["kwic"]:
-                if isinstance(sent[struct_name], list):
-                    for item in sent[struct_name]:
-                        occurring_keys |= set(item.keys())
-                else:
-                    occurring_keys |= set(sent[struct_name].keys())
-            return [key for key in keys if key in occurring_keys]
-
         extract_show_opt("attrs", "show", "tokens")
         extract_show_opt("structs", "show_struct", "structs")
-        for opt_name, default_val in self._option_defaults.iteritems():
+        for opt_name, default_val in self._formatter.get_options().iteritems():
             opts[opt_name] = self._form.get(opt_name, default_val)
         return opts
-
-    def _get_option_bool(self, optname):
-        return (self._opts[optname].lower()
-                not in ["false", "no", "off", "0", ""])
-
-    def _get_option_int(self, optname):
-        value = None
-        try:
-            value = int(self._opts[optname])
-        except ValueError:
-            value = int(self._option_defaults[optname])
-        except TypeError:
-            value = int(self._option_defaults[optname])
-        return value
 
     def get_filename(self):
         return self._form.get(
             "filename",
             self._filename_base + time.strftime("%Y%m%d%H%M%S")
-            + self._filename_extension)
+            + self._formatter._filename_extension)
+
+
+class KorpQueryResult(object):
+
+    def __init__(self, query_result):
+        if isinstance(query_result, basestring):
+            self._query_result = json.loads(query_result)
+        else:
+            self._query_result = query_result
 
     def get_sentences(self):
         return self._query_result["kwic"]
+
+    def get_occurring_attrnames(self, keys, struct_name):
+        # FIXME: This does not take into account attributes in aligned
+        # sentences
+        occurring_keys = set()
+        for sent in self.get_sentences():
+            if isinstance(sent[struct_name], list):
+                for item in sent[struct_name]:
+                    occurring_keys |= set(item.keys())
+            else:
+                occurring_keys |= set(sent[struct_name].keys())
+        return [key for key in keys if key in occurring_keys]
 
     def get_sentence_corpus(self, sentence):
         return sentence["corpus"]
@@ -250,17 +199,17 @@ class KorpExporter(object):
     def get_aligned_sentences(self, sentence):
         return sorted(sentence.get("aligned", {}).iteritems())
 
-    def get_sentence_structs(self, sentence):
+    def get_sentence_structs(self, sentence, structnames):
         # Value may be None; convert them to empty strings
         return [(struct, sentence["structs"].get(struct) or "")
-                for struct in self._opts.get("structs", [])]
+                for struct in structnames]
 
-    def get_sentence_struct_values(self, sentence):
-        return [value for name, value in self.get_sentence_structs(sentence)]
+    def get_sentence_struct_values(self, sentence, structnames):
+        return [value for name, value in
+                self.get_sentence_structs(sentence, structnames)]
 
-    def get_token_attrs(self, token):
-        return [(attrname, token.get(attrname) or "")
-                for attrname in self._opts.get("attrs", [])]
+    def get_token_attrs(self, token, attrnames):
+        return [(attrname, token.get(attrname) or "") for attrname in attrnames]
 
     def get_token_structs_open(self, token, combine_attrs=False):
         return self._get_token_structs(token, "open", combine_attrs)
@@ -300,6 +249,103 @@ class KorpExporter(object):
         # from frontend instead of redoing the query, since the frontend
         # has processed the corpus names not to contain the vertical bar.
         return "|" in self._query_result["kwic"][0]["corpus"]
+    
+
+class KorpFormatterMetaclass(type):
+
+    def __init__(self, classname, bases, attrs):
+        super(KorpFormatterMetaclass, self).__init__(classname, bases, attrs)
+        self._make_option_defaults(bases)
+
+    def _make_option_defaults(self, base_classes):
+        new_option_defaults = {}
+        for cls in list(base_classes) + [self]:
+            try:
+                new_option_defaults.update(cls._option_defaults)
+            except AttributeError:
+                pass
+        self._option_defaults = new_option_defaults
+
+
+class KorpFormatter(object):
+
+    __metaclass__ = KorpFormatterMetaclass
+
+    _formats = []
+    _download_charset = "utf-8"
+    _mime_type = "application/unknown"
+    _structured_format = False
+    _filename_extension = ""
+    _option_defaults = {
+        "newline": "\n",
+        "headings": "",
+        "header_format": u"{headings}",
+        "footer_format": u"",
+        "word_format": u"{word}",
+        "token_format": u"{word}[{attrs}]",
+        "token_separator": u" ",
+        "attr_format": u"{value}",
+        "attr_separator": u";",
+        "sentence_format": (u"{corpus} {match_pos}: {left_context}"
+                            u"{match_open}{match}{match_close}"
+                            u"{right_context}\n"),
+        "match_open": u"",
+        "match_close": u"",
+        "sentence_separator": u"",
+        "aligned_format": u"{sentence}",
+        "aligned_separator": u" | ",
+        "struct_format": u"{name}: {value}",
+        "struct_separator": u"; ",
+        "token_struct_open_format": u"",
+        "token_struct_close_format": u"",
+        "token_struct_open_separator": "",
+        "token_struct_close_separator": "",
+        "combine_token_structs": "False",
+        "content_format": u"{header}{sentences}{footer}",
+        "date_format": "%Y-%m-%d %H:%M:%S",
+        "params_format": (u"corpora: {corpus}; CQP query: {cqp}; "
+                          u"context: {defaultcontext}; "
+                          u"within: {defaultwithin}; sorting: {sort}; "
+                          u"start: {start}; end: {end}")
+        }
+
+    def __init__(self, format_name, options=None):
+        self._format_name = format_name
+        self._opts = {}
+        self._opts.update(self.__class__._option_defaults)
+        self._opts.update(options or {})
+        self._query_params = {}
+        self._query_result = {}
+
+    def get_options(self):
+        return self._opts
+
+    def _get_option_bool(self, optname):
+        return (self._opts[optname].lower()
+                not in ["false", "no", "off", "0", ""])
+
+    def _get_option_int(self, optname):
+        value = None
+        try:
+            value = int(self._opts[optname])
+        except ValueError:
+            value = int(self._option_defaults[optname])
+        except TypeError:
+            value = int(self._option_defaults[optname])
+        return value
+
+    def make_download_content(self, query_result, query_params=None,
+                              options=None):
+        self._query_result = query_result
+        self._query_params = query_params or {}
+        self._opts.update(options or {})
+        return self._convert_newlines(self.format_content())
+
+    def _convert_newlines(self, text):
+        if self._opts["newline"] != "\n":
+            return text.replace("\n", self._opts["newline"])
+        else:
+            return text
 
     def _format_list(self, list_, type_name, format_fn=None):
         format_fn = format_fn or getattr(self, "format_" + type_name)
@@ -319,15 +365,6 @@ class KorpExporter(object):
         format_args = [(name, make_format_arg_value(name, format_arg_fn))
                        for (name, format_arg_fn) in format_arg_fns.iteritems()]
         return format_str.format(**format_args)
-
-    def make_download_content(self):
-        return self._convert_newlines(self.format_content())
-
-    def _convert_newlines(self, text):
-        if self._opts["newline"] != "\n":
-            return text.replace("\n", self._opts["newline"])
-        else:
-            return text
 
     def format_content(self):
         return self._opts["content_format"].format(
@@ -367,28 +404,30 @@ class KorpExporter(object):
         return ""
 
     def format_sentences(self):
-        return self._format_list(self.get_sentences(), "sentence")
+        return self._format_list(self._query_result.get_sentences(), "sentence")
 
     def format_sentence(self, sentence):
+        qresult = self._query_result
         return self._opts["sentence_format"].format(
-            corpus=self.get_sentence_corpus(sentence),
-            match_pos=self.get_sentence_match_position(sentence),
+            corpus=qresult.get_sentence_corpus(sentence),
+            match_pos=qresult.get_sentence_match_position(sentence),
             tokens=self.format_tokens(
-                self.get_sentence_tokens(sentence, None, None)),
+                qresult.get_sentence_tokens(sentence, None, None)),
             match=self.format_tokens(
-                self.get_sentence_tokens_match(sentence)),
+                qresult.get_sentence_tokens_match(sentence)),
             match_open=self._opts["match_open"],
             match_close=self._opts["match_close"],
             left_context=self.format_tokens(
-                self.get_sentence_tokens_left_context(sentence)),
+                qresult.get_sentence_tokens_left_context(sentence)),
             right_context=self.format_tokens(
-                self.get_sentence_tokens_right_context(sentence)),
+                qresult.get_sentence_tokens_right_context(sentence)),
             aligned=self.format_aligned_sentences(sentence),
             structs=self.format_structs(sentence))
 
     def format_aligned_sentences(self, sentence):
-        return self._format_list(self.get_aligned_sentences(sentence),
-                                 "aligned", self.format_aligned_sentence)
+        return self._format_list(
+            self._query_result.get_aligned_sentences(sentence), "aligned",
+            self.format_aligned_sentence)
 
     def format_aligned_sentence(self, aligned_sentence):
         align_key, sentence = aligned_sentence
@@ -397,7 +436,10 @@ class KorpExporter(object):
             sentence=sentence)
 
     def format_structs(self, sentence):
-        return self._format_list(self.get_sentence_structs(sentence), "struct")
+        return self._format_list(
+            self._query_result.get_sentence_structs(
+                sentence, self._opts.get("structs", [])),
+            "struct")
 
     def format_struct(self, struct):
         return self._opts["struct_format"].format(
@@ -423,8 +465,10 @@ class KorpExporter(object):
 
     def format_token_attrs(self, token):
         """Format the attributes of a token."""
-        return self._format_list(self.get_token_attrs(token), "attr",
-                                 self.format_token_attr)
+        return self._format_list(
+            self._query_result.get_token_attrs(
+                token, self._opts.get("attrs", [])), "attr",
+            self.format_token_attr)
 
     def format_token_attr(self, attr_name_value):
         attrname, value = attr_name_value
@@ -434,7 +478,8 @@ class KorpExporter(object):
     def format_token_structs_open(self, token):
         combine = self._get_option_bool("combine_token_structs")
         return self._format_list(
-            self.get_token_structs_open(token, combine), "token_struct_open")
+            self._query_result.get_token_structs_open(token, combine),
+            "token_struct_open")
 
     def format_token_struct_open(self, struct):
         if self._get_option_bool("combine_token_structs"):
@@ -456,7 +501,7 @@ class KorpExporter(object):
 
     def format_token_structs_close(self, token):
         return self._format_list(
-            self.get_token_structs_close(
+            self._query_result.get_token_structs_close(
                 token, self._get_option_bool("combine_token_structs")),
             "token_struct_close")
 
@@ -467,4 +512,4 @@ class KorpExporter(object):
 
 
 if __name__ == "__main__":
-    print KorpExporter._find_exporter_class('json')
+    print KorpExporter._find_formatter_class('json')
