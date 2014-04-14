@@ -31,19 +31,21 @@ def get_sentence_tokens(sentence, start, end):
     return sentence["tokens"][start:end]
 
 
+def get_sentence_tokens_all(sentence):
+    return get_sentence_tokens(sentence, None, None)
+
+
 def get_sentence_tokens_match(sentence):
     return get_sentence_tokens(sentence, sentence["match"]["start"],
                                sentence["match"]["end"])
 
 
 def get_sentence_tokens_left_context(sentence):
-    return get_sentence_tokens(sentence, None,
-                               sentence["match"]["start"])
+    return get_sentence_tokens(sentence, None, sentence["match"]["start"])
 
 
 def get_sentence_tokens_right_context(sentence):
-    return get_sentence_tokens(sentence, sentence["match"]["end"],
-                               None)
+    return get_sentence_tokens(sentence, sentence["match"]["end"], None)
 
 
 def get_sentence_match_position(sentence):

@@ -174,7 +174,7 @@ class KorpExportFormatter(object):
             corpus=qr.get_sentence_corpus(sentence),
             match_pos=qr.get_sentence_match_position(sentence),
             tokens=self._format_tokens(
-                qr.get_sentence_tokens(sentence, None, None)),
+                qr.get_sentence_tokens_all(sentence)),
             match=self._format_tokens(
                 qr.get_sentence_tokens_match(sentence)),
             match_open=self._opts["match_open"],
