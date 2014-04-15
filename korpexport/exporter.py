@@ -115,9 +115,13 @@ class KorpExporter(object):
             if self._formatter.structured_format:
                 self._query_params["show"] += self._query_params["show_struct"]
             logging.debug("query_params: %s", self._query_params)
+            # Encode the query parameters in UTF-8 for Korp server
+            query_params_utf8 = dict(
+                (key, val.encode("utf-8"))
+                for key, val in self._query_params.iteritems())
             query_result_json = (
                 urllib2.urlopen(korp_server_url,
-                                urllib.urlencode(self._query_params))
+                                urllib.urlencode(query_params_utf8))
                 .read())
             # Support "sort" in format params even if not specified
             if "sort" not in self._query_params:

@@ -48,10 +48,13 @@ def main():
     below.
     """
     starttime = time.time()
-    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0) # Open unbuffered stdout
-    # Convert form fields to regular dictionary
+    # Open unbuffered stdout
+    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+    # Convert form fields to regular dictionary with unicode values;
+    # assume that the input is encoded in UTF-8
     form_raw = cgi.FieldStorage()
-    form = dict((field, form_raw.getvalue(field)) for field in form_raw.keys())
+    form = dict((field, form_raw.getvalue(field).decode("utf-8"))
+                for field in form_raw.keys())
     # Configure logging
     loglevel = logging.DEBUG if "debug" in form else LOG_LEVEL
     logfile = form.get("logfile", LOG_FILE)
