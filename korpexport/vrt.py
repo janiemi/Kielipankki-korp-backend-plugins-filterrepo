@@ -21,7 +21,9 @@ class KorpExportFormatterVRT(KorpExportFormatter):
         "header_format": (u"<?xml version=\"1.0\" encoding=\"UTF-8\" "
                           u"standalone=\"yes\"?>\n"
                           u"<!-- Date: {date} -->\n"
-                          u"<!-- Query parameters: {params} -->\n"),
+                          u"<!-- Query parameters: {params} -->\n"
+                          u"<korp_kwic>\n"),
+        "footer_format": u"</korp_kwic>\n",
         "token_format": u"{structs_open}{word}\t{attrs}\n{structs_close}",
         "token_sep": "",
         "attr_sep": u"\t",
