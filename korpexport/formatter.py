@@ -109,10 +109,16 @@ class KorpExportFormatter(object):
         else:
             return text
 
-    def _format_list(self, list_, type_name, format_fn=None):
+    def _get_sentence_structs(self, sentence):
+        return qr.get_sentence_structs(sentence, self._opts.get("structs", []))
+
+    def _get_token_attrs(self, token):
+        return qr.get_token_attrs(token, self._opts.get("attrs", []))
+
+    def _format_list(self, list_, type_name, format_fn=None, **kwargs):
         format_fn = format_fn or getattr(self, "_format_" + type_name)
         return self._opts[type_name + "_sep"].join(
-            format_fn(elem) for elem in list_)
+            format_fn(elem, **kwargs) for elem in list_)
 
     def _format_part(self, format_name, arg_fn_args, **format_arg_fns):
         # A non-tested, non-used formatting function with a kind of
@@ -169,14 +175,15 @@ class KorpExportFormatter(object):
         return self._format_list(qr.get_sentences(self._query_result),
                                  "sentence")
 
-    def _format_sentence(self, sentence):
+    def _format_sentence(self, sentence, **kwargs):
+        struct = self._get_formatted_sentence_structs(sentence)
         return self._opts["sentence_format"].format(
             corpus=qr.get_sentence_corpus(sentence),
             match_pos=qr.get_sentence_match_position(sentence),
             tokens=self._format_tokens(
                 qr.get_sentence_tokens_all(sentence)),
             match=self._format_tokens(
-                qr.get_sentence_tokens_match(sentence)),
+                qr.get_sentence_tokens_match(sentence), within_match=True),
             match_open=self._opts["match_open"],
             match_close=self._opts["match_close"],
             left_context=self._format_tokens(
@@ -184,33 +191,38 @@ class KorpExportFormatter(object):
             right_context=self._format_tokens(
                 qr.get_sentence_tokens_right_context(sentence)),
             aligned=self._format_aligned_sentences(sentence),
-            structs=self._format_structs(sentence))
+            structs=self._format_structs(sentence),
+            struct=struct,
+            arg=kwargs)
+
+    def _get_formatted_sentence_structs(self, sentence):
+        return dict([(key, self._format_struct((key, val)))
+                     for (key, val) in self._get_sentence_structs(sentence)])
 
     def _format_aligned_sentences(self, sentence):
         return self._format_list(qr.get_aligned_sentences(sentence), "aligned",
                                  self._format_aligned_sentence)
 
-    def _format_aligned_sentence(self, aligned_sentence):
+    def _format_aligned_sentence(self, aligned_sentence, **kwargs):
         align_key, sentence = aligned_sentence
         return self._opts["aligned_format"].format(
             align_key=align_key,
             sentence=sentence)
 
     def _format_structs(self, sentence):
-        return self._format_list(
-            qr.get_sentence_structs(sentence, self._opts.get("structs", [])),
-            "struct")
+        return self._format_list(self._get_sentence_structs(sentence),
+                                 "struct")
 
     def _format_struct(self, struct):
         return self._opts["struct_format"].format(
             name=struct[0],
             value=struct[1])
 
-    def _format_tokens(self, tokens):
+    def _format_tokens(self, tokens, **kwargs):
         """Format the tokens of a single sentence."""
-        return self._format_list(tokens, "token")
+        return self._format_list(tokens, "token", **kwargs)
 
-    def _format_token(self, token):
+    def _format_token(self, token, **kwargs):
         """Format a single token, possibly with attributes."""
         # Allow for None in word (but where do they come from?)
         result = self._opts["word_format"].format(
@@ -226,8 +238,7 @@ class KorpExportFormatter(object):
     def _format_token_attrs(self, token):
         """Format the attributes of a token."""
         return self._format_list(
-            qr.get_token_attrs(token, self._opts.get("attrs", [])), "attr",
-            self._format_token_attr)
+            self._get_token_attrs(token), "attr", self._format_token_attr)
 
     def _format_token_attr(self, attr_name_value):
         attrname, value = attr_name_value

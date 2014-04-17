@@ -8,7 +8,9 @@ import korpexport.queryresult as qr
 from .formatter import KorpExportFormatter
 
 
-__all__ = ['KorpExportFormatterCSV', 'KorpExportFormatterTSV']
+__all__ = ['KorpExportFormatterCSV',
+           'KorpExportFormatterCSVTokens',
+           'KorpExportFormatterTSV']
 
 
 class KorpExportFormatterDelimited(KorpExportFormatter):
@@ -29,10 +31,13 @@ class KorpExportFormatterDelimited(KorpExportFormatter):
                else [])
             + self._opts.get("structs", []))
 
+    def _format_metainfo(self):
+        return (self._format_fields(["## Date: " + self._format_date()])
+                + self._format_fields(["## Query parameters: "
+                                       + self._format_params()]))
+
     def _format_footer(self):
-        return (self._format_fields(["## Date:", self._format_date()])
-                + self._format_fields(["## Query parameters:",
-                                       self._format_params()]))
+        return self._format_metainfo()
 
     def _format_sentence(self, sentence):
         """Format a single delimited sentence.
@@ -90,6 +95,62 @@ class KorpExportFormatterCSV(KorpExportFormatterDelimited):
 
     def __init__(self, *args, **kwargs):
         KorpExportFormatterDelimited.__init__(self, *args, **kwargs)
+
+
+class KorpExportFormatterCSVTokens(KorpExportFormatterCSV):
+
+    # csvp is an alias for csv_tokens
+    formats = ["csv_tokens", "csvp"]
+
+    _option_defaults = {
+        "sentence_header_format": (u"# {corpus}:"
+                                   u" sentence {struct[sentence_id]},"
+                                   u" position {match_pos}"),
+        "sentence_format": (u"{arg[header]}{left_context}{match}"
+                            u"{right_context}\n"),
+        "struct_format": u"{value}",
+        "token_sep": "",
+        "match_marker": "*",
+        "match_field": "0"
+        }
+
+    def __init__(self, *args, **kwargs):
+        KorpExportFormatterCSV.__init__(self, *args, **kwargs)
+        self._opts["match_field"] = self.get_option_int("match_field")
+
+    def _format_headings(self):
+        field_names = ["word"] + self._opts.get("attrs", [])
+        self._insert_match_field(field_names, "match")
+        return self._format_metainfo() + self._format_fields(field_names) + "\n"
+
+    def _insert_match_field(self, fields, content):
+        if self._opts["match_field"] is not None:
+            fields.insert(self._opts["match_field"], content)
+
+    def _format_footer(self):
+        return ""
+
+    def _format_sentence_header(self, sentence):
+        struct = self._get_formatted_sentence_structs(sentence)
+        return self._format_fields([
+                self._opts["sentence_header_format"].format(
+                    corpus=qr.get_sentence_corpus(sentence),
+                    match_pos=qr.get_sentence_match_position(sentence),
+                    aligned=self._format_aligned_sentences(sentence),
+                    structs=self._format_structs(sentence),
+                    struct=struct)])
+
+    def _format_sentence(self, sentence):
+        return KorpExportFormatter._format_sentence(
+            self, sentence, header=self._format_sentence_header(sentence))
+
+    def _format_token(self, token, within_match=False):
+        fields = ([token.get("word")]
+                  + [self._format_token_attr(attr)
+                     for attr in self._get_token_attrs(token)])
+        self._insert_match_field(
+            fields, self._opts["match_marker"] if within_match else "")
+        return self._format_fields(fields)
 
 
 class KorpExportFormatterTSV(KorpExportFormatterDelimited):
