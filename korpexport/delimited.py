@@ -133,7 +133,8 @@ class KorpExportFormatterCSVTokens(KorpExportFormatterCSV):
     def _format_sentence_header(self, sentence):
         struct = self._get_formatted_sentence_structs(sentence)
         return self._format_fields([
-                self._opts["sentence_header_format"].format(
+                self._format_item(
+                    "sentence_header",
                     corpus=qr.get_sentence_corpus(sentence),
                     match_pos=qr.get_sentence_match_position(sentence),
                     aligned=self._format_aligned_sentences(sentence),
