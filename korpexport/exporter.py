@@ -136,16 +136,38 @@ class KorpExporter(object):
 
         def extract_show_opt(opt_name, query_param_name,
                              query_result_struct_name):
+            """Set the show option opt_name based on query params and result.
+
+            If the form contains parameter opt_name, set the option
+            opt_name to be a list of attributes or structures to be
+            shown. The value of the form parameter may be a
+            comma-separated string of attribute names; * for all the
+            attributes listed in the query parameter query_param_name;
+            + for all of those that actually occur in query result
+            structure query_result_struct_name; -attr for excluding
+            attr (used following with * or +).
+            """
             if opt_name in self._form:
-                val = orig_val = self._form[opt_name]
-                if val in ["*", "+"]:
-                    val = self._query_params[query_param_name].split(",")
-                    if orig_val == "+":
-                        val = qr.get_occurring_attrnames(
-                            self._query_result, val, query_result_struct_name)
-                else:
-                    val = val.split(",")
-                opts[opt_name] = val
+                vals = self._form[opt_name].split(",")
+                new_vals = []
+                for valnum, val in enumerate(vals):
+                    if val in ["*", "+"]:
+                        all_vals = (
+                            self._query_params[query_param_name].split(","))
+                        if val == "+":
+                            add_vals = qr.get_occurring_attrnames(
+                                self._query_result, all_vals,
+                                query_result_struct_name)
+                        else:
+                            add_vals = all_vals
+                        new_vals.extend(add_vals)
+                    elif val.startswith("-"):
+                        valname = val[1:]
+                        if valname in new_vals:
+                            new_vals.remove(valname)
+                    else:
+                        new_vals.append(val)
+                opts[opt_name] = new_vals
 
         extract_show_opt("attrs", "show", "tokens")
         extract_show_opt("structs", "show_struct", "structs")
@@ -156,7 +178,7 @@ class KorpExporter(object):
     def _get_filename(self):
         return self._form.get(
             "filename",
-            self._filename_base + time.strftime("%Y%m%d%H%M%S")
+            self._filename_base + time.strftime("%Y%m%d_%H%M%S")
             + self._formatter.filename_extension)
 
 
