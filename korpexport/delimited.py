@@ -18,7 +18,8 @@ class KorpExportFormatterDelimited(KorpExportFormatter):
     _option_defaults = {
         "delimiter": u",",
         "quote": u"\"",
-        "replace_quote": u"\"\""
+        "replace_quote": u"\"\"",
+        "metainfo_item_format": u"## {key}: {value}"
         }
 
     def __init__(self, *args, **kwargs):
@@ -32,9 +33,26 @@ class KorpExportFormatterDelimited(KorpExportFormatter):
             + self._opts.get("structs", []))
 
     def _format_metainfo(self):
-        return (self._format_fields(["## Date: " + self._format_date()])
-                + self._format_fields(["## Query parameters: "
-                                       + self._format_params()]))
+        # TODO: Extract the query param labels and keys from
+        # self._opts["params_format"]. Or maybe rather add options
+        # listing the parameters and for formatting a single
+        # parameter.
+        query_params = [("  " + label, self._query_params.get(param, "[none]"))
+                        for label, param in
+                        [("corpora", "corpus"),
+                         ("CQP query", "cqp"),
+                         ("context", "defaultcontext"),
+                         ("within", "defaultwithin"),
+                         ("sorting", "sort"),
+                         ("start", "start"),
+                         ("end", "end")]]
+        return ''.join(
+            self._format_fields(
+                [self._format_item("metainfo_item", key=key, value=value)
+                 .strip()])
+            for key, value in ([("Date", self._format_date()),
+                                ("Query parameters", "")]
+                               + query_params))
 
     def _format_footer(self):
         return self._format_metainfo()
@@ -121,7 +139,8 @@ class KorpExportFormatterCSVTokens(KorpExportFormatterCSV):
     def _format_headings(self):
         field_names = ["word"] + self._opts.get("attrs", [])
         self._insert_match_field(field_names, "match")
-        return self._format_metainfo() + self._format_fields(field_names) + "\n"
+        return (self._format_metainfo() + "\n"
+                + self._format_fields(field_names) + "\n")
 
     def _insert_match_field(self, fields, content):
         if self._opts["match_field"] is not None:
