@@ -7,7 +7,7 @@ from __future__ import absolute_import
 import json
 
 import korpexport.queryresult as qr
-from .formatter import KorpExportFormatter
+from korpexport.formatter import KorpExportFormatter
 
 
 class KorpExportFormatterJSON(KorpExportFormatter):

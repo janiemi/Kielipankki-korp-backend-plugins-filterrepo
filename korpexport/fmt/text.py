@@ -4,7 +4,7 @@
 
 from __future__ import absolute_import
 
-from .formatter import KorpExportFormatter
+from korpexport.formatter import KorpExportFormatter
 
 
 class KorpExportFormatterText(KorpExportFormatter):
