@@ -57,12 +57,19 @@ def main():
                 for field in form_raw.keys())
     # Configure logging
     loglevel = logging.DEBUG if "debug" in form else LOG_LEVEL
-    logfile = form.get("logfile", LOG_FILE)
-    logging.basicConfig(filename=logfile,
-                        format=('[%(filename)s %(process)d' +
+    logfile = form.get("logfile")
+    if 'GATEWAY_INTERFACE' in os.environ:
+        # The script is run via CGI
+        logfile = logfile or LOG_FILE
+    # If the script is run on the command line (not via CGI) and the
+    # parameter logfile is not specified, write log messages to stderr
+    logging_config_filearg = (dict(filename=logfile) if logfile
+                              else dict(stream=sys.stderr))
+    logging.basicConfig(format=('[%(filename)s %(process)d' +
                                 ' %(levelname)s @ %(asctime)s]' +
                                 ' %(message)s'),
-                        level=loglevel)
+                        level=loglevel,
+                        **logging_config_filearg)
     # Log remote IP address and CGI parameters
     logging.info('IP: %s', cgi.os.environ.get('REMOTE_ADDR'))
     # Limit the length of query_result written to the log
