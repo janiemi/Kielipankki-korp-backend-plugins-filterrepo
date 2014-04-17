@@ -9,6 +9,7 @@ import time
 import pkgutil
 import json
 import urllib, urllib2
+import re
 import logging
 
 import korpexport.queryresult as qr
@@ -32,11 +33,13 @@ class KorpExportError(Exception):
 
 class KorpExporter(object):
 
-    _filename_base_default = "korp_kwic_"
+    _filename_format_default = u"korp_kwic_{cqpwords:.60}_{date}_{time}{ext}"
 
-    def __init__(self, form, options=None, filename_base=None):
+    def __init__(self, form, options=None, filename_format=None,
+                 filename_encoding="utf-8"):
         self._form = form
-        self._filename_base = filename_base or self._filename_base_default
+        self._filename_format = filename_format or self._filename_format_default
+        self._filename_encoding = filename_encoding
         self._opts = options or {}
         self._query_params = {}
         self._query_result = None
@@ -129,6 +132,7 @@ class KorpExporter(object):
         self._query_result = json.loads(query_result_json)
         self._opts = self._extract_options()
         logging.debug("opts: %s", self._opts)
+        logging.debug("query result: %s", self._query_result)
 
     def _extract_options(self):
         """Extract formatting options from form, affected by query_params."""
@@ -176,10 +180,27 @@ class KorpExporter(object):
         return opts
 
     def _get_filename(self):
-        return self._form.get(
-            "filename",
-            self._filename_base + time.strftime("%Y%m%d_%H%M%S")
-            + self._formatter.filename_extension)
+        return (self._form.get(
+                "filename",
+                self._filename_format.format(
+                    date=time.strftime("%Y%m%d"),
+                    time=time.strftime("%H%M%S"),
+                    ext=self._formatter.filename_extension,
+                    cqpwords=self._make_cqp_filename_repr(),
+                    start=self._query_params["start"],
+                    end=self._query_params["end"]))
+                .encode(self._filename_encoding))
+
+    def _make_cqp_filename_repr(self, attrs=False, keep_chars=None,
+                                replace_char='_'):
+        # TODO: If attrs is True, include attribute names. Could we
+        # encode somehow the operator which could be != or contains?
+        words = re.findall(r'\"((?:[^\\\"]|\\.)*?)\"',
+                           self._query_params["cqp"])
+        replace_chars_re = re.compile(
+            r'[^\w' + re.escape(keep_chars or "") + ']+', re.UNICODE)
+        return replace_char.join(replace_chars_re.sub(replace_char, word)
+                                 for word in words)
 
 
 if __name__ == "__main__":

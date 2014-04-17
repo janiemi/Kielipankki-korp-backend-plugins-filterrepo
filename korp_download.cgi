@@ -26,6 +26,8 @@ import os
 import time
 import cgi
 import logging
+import urllib
+
 import korpexport.exporter as ke
 
 
@@ -117,10 +119,26 @@ def print_header(obj):
            + "; charset=" + charset)
     if "ERROR" not in obj:
         # Default filename 
-        print ("Content-Disposition: attachment; filename="
-               + obj.get("download_filename", "korp_kwic"))
+        print make_content_disposition_attachment(
+            obj.get("download_filename", "korp_kwic"))
         print "Content-Length: " + str(len(obj["download_content"]))
     print
+
+
+def make_content_disposition_attachment(filename):
+    """Return a Content-Disposition header with attachment filename
+
+    Encode the attachment filename in UTF-8 as specified in RFC 5987:
+    http://stackoverflow.com/questions/93551/how-to-encode-the-filename-parameter-of-content-disposition-header-in-http
+    According to the above discussion, this does not work with IE <9
+    and Android browsers. Moreover, if the file name contains a
+    non-ASCII character, at least Firefox 28 on Linux seems save an
+    empty file with the corresponding Latin-1 character in its name,
+    in addition to the real file.
+    """
+    return ("Content-Disposition: attachment; filename*=UTF-8''{filename}; "
+            "filename={filename}"
+            .format(filename=urllib.quote(filename)))
 
 
 def print_object(obj):
