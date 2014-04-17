@@ -100,7 +100,8 @@ class KorpExportFormatter(object):
         "params_format": (u"corpora: {corpus}; CQP query: {cqp}; "
                           u"context: {defaultcontext}; "
                           u"within: {defaultwithin}; sorting: {sort}; "
-                          u"start: {start}; end: {end}")
+                          u"start: {start}; end: {end}"),
+        "hitcount_format": u"{hitcount}"
         }
 
     _formatter = _PartialStringFormatter("[none]")
@@ -189,6 +190,10 @@ class KorpExportFormatter(object):
         return self._format_item("params",
                                  param=self._query_params, **self._query_params)
 
+    def _format_hitcount(self):
+        return self._format_item("hitcount",
+                                 hitcount=qr.get_hitcount(self._query_result))
+
     def _format_header(self):
         return self._format_header_footer("header")
 
@@ -203,7 +208,8 @@ class KorpExportFormatter(object):
             params=self._format_params(),
             # Also allow format references {param[name]}
             param=self._query_params,
-            date=self._format_date())
+            date=self._format_date(),
+            hitcount=self._format_hitcount())
 
     def _format_headings(self):
         return ""

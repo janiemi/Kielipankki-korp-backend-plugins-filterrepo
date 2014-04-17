@@ -10,6 +10,17 @@ def get_sentences(query_result):
     return query_result["kwic"]
 
 
+def get_hitcount(query_result):
+    return query_result["hits"]
+
+
+def get_corpus_hitcount(query_result, corpus=None):
+    if corpus is None:
+        return query_result["corpus_hits"]
+    else:
+        return query_result["corpus_hits"].get(corpus)
+
+
 def get_occurring_attrnames(query_result, keys, struct_name):
     # FIXME: This does not take into account attributes in aligned
     # sentences

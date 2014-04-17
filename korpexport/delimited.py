@@ -52,7 +52,8 @@ class KorpExportFormatterDelimited(KorpExportFormatter):
                  .strip()])
             for key, value in ([("Date", self._format_date()),
                                 ("Query parameters", "")]
-                               + query_params))
+                               + query_params
+                               + [("Total hits", self._format_hitcount())]))
 
     def _format_footer(self):
         return self._format_metainfo()

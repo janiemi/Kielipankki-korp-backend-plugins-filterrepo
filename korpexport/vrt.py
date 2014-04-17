@@ -22,6 +22,7 @@ class KorpExportFormatterVRT(KorpExportFormatter):
                           u"standalone=\"yes\"?>\n"
                           u"<!-- Date: {date} -->\n"
                           u"<!-- Query parameters: {params} -->\n"
+                          u"<!-- Total hits: {hitcount} -->\n"
                           u"<korp_kwic>\n"),
         "footer_format": u"</korp_kwic>\n",
         "token_format": u"{structs_open}{word}\t{attrs}\n{structs_close}",

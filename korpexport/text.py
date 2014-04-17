@@ -14,7 +14,8 @@ class KorpExportFormatterText(KorpExportFormatter):
     filename_extension = ".txt"
 
     _option_defaults = {
-        "header_format": u"## Date: {date}\n## Query parameters: {params}\n",
+        "header_format": (u"## Date: {date}\n## Query parameters: {params}\n"
+                          u"## Total hits: {hitcount}\n"),
         "footer_format": "",
         "sentence_format": (u"{corpus} [{match_pos}]: {left_context}"
                             u"{match_open}{match}{match_close}"
