@@ -54,7 +54,7 @@ def main():
     sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
     # Convert form fields to regular dictionary with unicode values;
     # assume that the input is encoded in UTF-8
-    form_raw = cgi.FieldStorage()
+    form_raw = cgi.FieldStorage(keep_blank_values=1)
     form = dict((field, form_raw.getvalue(field).decode("utf-8"))
                 for field in form_raw.keys())
     # Configure logging

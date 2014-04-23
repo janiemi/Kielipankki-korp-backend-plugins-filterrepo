@@ -18,18 +18,20 @@ class KorpExportFormatterVRT(KorpExportFormatter):
     structured_format = True
 
     _option_defaults = {
-        "header_format": (u"<?xml version=\"1.0\" encoding=\"UTF-8\" "
-                          u"standalone=\"yes\"?>\n"
-                          u"<!-- Date: {date} -->\n"
-                          u"<!-- Query parameters: {params} -->\n"
-                          u"<!-- Total hits: {hitcount} -->\n"
-                          u"<korp_kwic>\n"),
-        "footer_format": u"</korp_kwic>\n",
-        "token_format": u"{structs_open}{word}\t{attrs}\n{structs_close}",
+        # Currently no XML declaration since the result is not
+        # necessarily even well-formed XML
+        "content_format": (u"{info}\n<!-- {token_field_headings} -->\n"
+                           u"<korp_kwic>\n{sentences}</korp_kwic>\n"),
+        "infoitem_format": u"<!-- {label}:{sp_or_nl}{value} -->",
+        "param_format": u"       {label}: {value}",
+        "param_sep": "\n",
+        "token_format": u"{structs_open}{fields}\n{structs_close}",
+        "token_field_sep": "\t",
         "token_sep": "",
         "attr_sep": u"\t",
         # FIXME: This adds MATCH tags before any opening tags and
-        # aftore any closing tags in match.
+        # aftore any closing tags in match. It might require a
+        # customized _format_sentence to get it right.
         "sentence_format": (u"{left_context}<MATCH position=\"{match_pos}\">\n"
                             u"{match}</MATCH>\n{right_context}"),
         "token_struct_open_noattrs_format": u"<{name}>\n",

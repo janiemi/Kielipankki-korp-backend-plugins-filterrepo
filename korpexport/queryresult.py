@@ -123,4 +123,7 @@ def is_parallel_corpus(query_result):
     # FIXME: This does not work if the script gets the query result
     # from frontend instead of redoing the query, since the frontend
     # has processed the corpus names not to contain the vertical bar.
-    return "|" in query_result["kwic"][0]["corpus"]
+    try:
+        return "|" in query_result["kwic"][0]["corpus"]
+    except (KeyError, IndexError):
+        return False
