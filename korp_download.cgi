@@ -136,9 +136,11 @@ def make_content_disposition_attachment(filename):
     empty file with the corresponding Latin-1 character in its name,
     in addition to the real file.
     """
-    return ("Content-Disposition: attachment; filename*=UTF-8''{filename}; "
-            "filename={filename}"
-            .format(filename=urllib.quote(filename)))
+    filename = urllib.quote(filename)
+    return (("Content-Disposition: attachment; "
+             + ("filename*=UTF-8''{filename}; " if "%" in filename else "")
+             + "filename={filename}")
+            .format(filename=filename))
 
 
 def print_object(obj):
