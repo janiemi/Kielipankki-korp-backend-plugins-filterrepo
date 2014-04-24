@@ -33,6 +33,7 @@ class KorpExportError(Exception):
 
 class KorpExporter(object):
 
+    _FORMATTER_SUBPACKAGE = "format"
     _filename_format_default = u"korp_kwic_{cqpwords:.60}_{date}_{time}{ext}"
 
     def __init__(self, form, options=None, filename_format=None,
@@ -75,10 +76,12 @@ class KorpExporter(object):
         return formatter_class(format_name, **kwargs)
 
     def _find_formatter_class(self, format_name):
-        pkgpath = os.path.join(os.path.dirname(__file__), "fmt")
+        pkgpath = os.path.join(os.path.dirname(__file__),
+                               self._FORMATTER_SUBPACKAGE)
         for _, module_name, _ in pkgutil.iter_modules([pkgpath]):
             try:
-                subpkg = __import__("fmt." + module_name, globals())
+                subpkg = __import__(
+                    self._FORMATTER_SUBPACKAGE + "." + module_name, globals())
             except ImportError as e:
                 continue
             module = getattr(subpkg, module_name)
