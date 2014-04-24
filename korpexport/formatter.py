@@ -4,8 +4,7 @@
 
 # TODO: rename type_name -> item_type?, item -> ???;
 # kwargs/format_args to all _format methods; _format_list args: type
-# before list; reorder options (and methods?); sensible defaults for
-# all options
+# before list; sensible defaults for all options
 
 
 from __future__ import absolute_import
@@ -78,49 +77,16 @@ class KorpExportFormatter(object):
     filename_extension = ""
 
     _option_defaults = {
+        "list_valued_opts": [
+            "infoitems",
+            "params",
+            "sentence_fields",
+            "token_fields"
+            ],
         "newline": "\n",
         "show_info": "True",
         "show_field_headings": "True",
-        "word_format": u"{word}",
-        "token_fields": "word,*attrs",
-        "token_field_labels": {
-            "match_mark": "match"
-            },
-        "token_field_format": u"{value}",
-        "token_field_sep": ";",
-        "token_format": u"{word}[{attrs}]",
-        "token_noattrs_format": u"{word}",
-        "token_sep": u" ",
-        "attr_format": u"{value}",
-        "attr_sep": u";",
-        "sentence_fields": "",
-        "sentence_field_labels": {
-            "match_pos": "match position",
-            "left_context": "left context",
-            "right_context": "right context",
-            "aligned_text": "aligned text"
-            },
-        "sentence_field_format": u"{value}",
-        "sentence_field_sep": "",
-        "sentence_info_format": u"{corpus} {match_pos}",
-        "sentence_format": (u"{info}: {left_context}"
-                            u"{match_open}{match}{match_close}"
-                            u"{right_context}\n"),
-        "match_open": u"",
-        "match_close": u"",
-        "match_marker": u"*",
-        "sentence_sep": u"",
-        "aligned_format": u"{sentence}",
-        "aligned_sep": u" | ",
-        "struct_format": u"{name}: {value}",
-        "struct_sep": u"; ",
-        "token_struct_open_format": u"",
-        "token_struct_close_format": u"",
-        "token_struct_open_sep": "",
-        "token_struct_close_sep": "",
-        "combine_token_structs": "False",
         "content_format": u"{info}{sentence_field_headings}{sentences}",
-        "date_format": "%Y-%m-%d %H:%M:%S",
         "infoitems_format": "{title}{infoitems}\n",
         "infoitems": "date,korp_url,params,hitcount",
         "infoitem_labels": {
@@ -134,6 +100,8 @@ class KorpExportFormatter(object):
         "infoitem_sep": "\n",
         "title_format": u"{title}\n",
         "title": "Korp search results",
+        "date_format": "%Y-%m-%d %H:%M:%S",
+        "hitcount_format": u"{hitcount}",
         "params_format": u"{params}",
         "params": "corpus,cqp,defaultcontext,defaultwithin,sort,start,end",
         "param_labels": {
@@ -146,9 +114,44 @@ class KorpExportFormatter(object):
         "param_format": u"{label}: {value}", 
         "param_sep": "; ",
         "field_headings_format": u"{field_headings}\n",
-        "hitcount_format": u"{hitcount}",
-        "list_valued_opts": ["infoitems", "params", "sentence_fields",
-                             "token_fields"]
+        "sentence_format": (u"{info}: {left_context}"
+                            u"{match_open}{match}{match_close}"
+                            u"{right_context}\n"),
+        "sentence_sep": u"",
+        "sentence_info_format": u"{corpus} {match_pos}",
+        "sentence_fields": "",
+        "sentence_field_labels": {
+            "match_pos": "match position",
+            "left_context": "left context",
+            "right_context": "right context",
+            "aligned_text": "aligned text"
+            },
+        "sentence_field_format": u"{value}",
+        "sentence_field_sep": "",
+        "aligned_format": u"{sentence}",
+        "aligned_sep": u" | ",
+        "struct_format": u"{name}: {value}",
+        "struct_sep": u"; ",
+        "token_format": u"{word}[{attrs}]",
+        "token_noattrs_format": u"{word}",
+        "token_sep": u" ",
+        "word_format": u"{word}",
+        "token_fields": "word,*attrs",
+        "token_field_labels": {
+            "match_mark": "match"
+            },
+        "token_field_format": u"{value}",
+        "token_field_sep": ";",
+        "attr_format": u"{value}",
+        "attr_sep": u";",
+        "token_struct_open_format": u"",
+        "token_struct_close_format": u"",
+        "token_struct_open_sep": "",
+        "token_struct_close_sep": "",
+        "combine_token_structs": "False",
+        "match_open": u"",
+        "match_close": u"",
+        "match_marker": u"*",
         }
 
     _formatter = _PartialStringFormatter("[none]")
@@ -233,6 +236,11 @@ class KorpExportFormatter(object):
         return qr.get_sentence_structs(
             sentence, None if all_structs else self._opts.get("structs", []))
 
+    def _get_formatted_sentence_structs(self, sentence):
+        return dict([(key, self._format_struct((key, val)))
+                     for (key, val)
+                     in self._get_sentence_structs(sentence, all_structs=True)])
+
     def _get_token_attrs(self, token, all_attrs=False):
         return qr.get_token_attrs(
             token, None if all_attrs else self._opts.get("attrs", []))
@@ -308,9 +316,6 @@ class KorpExportFormatter(object):
             sentences=self._format_sentences(),
             **self._infoitems)
 
-    def _format_date(self):
-        return time.strftime(self._opts["date_format"])
-
     def _format_infoitems(self):
         if self.get_option_bool("show_info"):
             return self._format_item(
@@ -341,6 +346,13 @@ class KorpExportFormatter(object):
         else:
             return self._format_item("title", title=title)
 
+    def _format_date(self):
+        return time.strftime(self._opts["date_format"])
+
+    def _format_hitcount(self):
+        return self._format_item("hitcount",
+                                 hitcount=qr.get_hitcount(self._query_result))
+
     def _format_params(self):
         # Allow format references {name} as well as {param[name]}
         return self._format_item(
@@ -358,10 +370,6 @@ class KorpExportFormatter(object):
     def _format_param(self, key, **format_args):
         return self._format_label_list_item(
             "param", key, self._query_params.get(key))
-
-    def _format_hitcount(self):
-        return self._format_item("hitcount",
-                                 hitcount=qr.get_hitcount(self._query_result))
 
     def _format_sentences(self):
         return self._format_list(qr.get_sentences(self._query_result),
@@ -404,11 +412,6 @@ class KorpExportFormatter(object):
         if value is None:
             value = format_args.get("struct", {}).get(key, "")
         return self._format_label_list_item("sentence_field", key, value)
-
-    def _get_formatted_sentence_structs(self, sentence):
-        return dict([(key, self._format_struct((key, val)))
-                     for (key, val)
-                     in self._get_sentence_structs(sentence, all_structs=True)])
 
     def _format_aligned_sentences(self, sentence):
         return self._format_list(qr.get_aligned_sentences(sentence), "aligned",

@@ -15,17 +15,17 @@ class KorpExportFormatterText(KorpExportFormatter):
 
     _option_defaults = {
         "content_format": u"{info}{sentences}",
-        "title_format": u"## {title}\n",
         "infoitems_format": u"{title}\n{infoitems}\n\n",
         "infoitem_format": u"## {label}:{sp_or_nl}{value}",
+        "title_format": u"## {title}\n",
         "param_format": u"##   {label}: {value}",
         "param_sep": "\n",
         "sentence_format": (u"{corpus} [{match_pos}]: {left_context}"
                             u"{match_open}{match}{match_close}"
                             u"{right_context} || {structs}\n"),
+        "struct_sep": " | ",
         "match_open": " <<< ",
         "match_close": " >>> ",
-        "struct_sep": " | "
         }
 
     def __init__(self, *args, **kwargs):
