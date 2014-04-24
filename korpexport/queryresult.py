@@ -67,19 +67,26 @@ def get_aligned_sentences(sentence):
     return sorted(sentence.get("aligned", {}).iteritems())
 
 
-def get_sentence_structs(sentence, structnames):
+def get_sentence_structs(sentence, structnames=None):
     # Value may be None; convert them to empty strings
-    return [(struct, sentence["structs"].get(struct) or "")
-            for struct in structnames]
+    if structnames is None:
+        return list(sentence["structs"].iteritems())
+    else:
+        return [(structname, sentence["structs"].get(structname) or "")
+                for structname in structnames]
 
 
-def get_sentence_struct_values(sentence, structnames):
+def get_sentence_struct_values(sentence, structnames=None):
     return [value for name, value in
             get_sentence_structs(sentence, structnames)]
 
 
-def get_token_attrs(token, attrnames):
-    return [(attrname, token.get(attrname) or "") for attrname in attrnames]
+def get_token_attrs(token, attrnames=None):
+    if attrnames is None:
+        return [(attrname, val) for attrname, val in token.iteritems()
+                if attrname != "structs"]
+    else:
+        return [(attrname, token.get(attrname) or "") for attrname in attrnames]
 
 
 def get_token_structs_open(token, combine_attrs=False):

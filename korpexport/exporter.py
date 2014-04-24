@@ -129,11 +129,11 @@ class KorpExporter(object):
             if "sort" not in self._query_params:
                 self._query_params["sort"] = "none"
         self._query_result = json.loads(query_result_json)
-        self._opts = self._extract_options()
+        self._opts = self._extract_options(korp_server_url)
         logging.debug("opts: %s", self._opts)
         logging.debug("query result: %s", self._query_result)
 
-    def _extract_options(self):
+    def _extract_options(self, korp_server_url=None):
         """Extract formatting options from form, affected by query_params."""
         opts = {}
 
@@ -176,6 +176,12 @@ class KorpExporter(object):
         extract_show_opt("structs", "show_struct", "structs")
         for opt_name, default_val in self._formatter.get_options().iteritems():
             opts[opt_name] = self._form.get(opt_name, default_val)
+        if self._form.get("korp_url"):
+            opts["korp_url"] = self._form.get("korp_url")
+        # FIXME: This does not make sense to the user if
+        # korp_server_url uses localhost.
+        opts["korp_server_url"] = (korp_server_url
+                                   or self._form.get("korp_server_url", ""))
         return opts
 
     def _get_filename(self):

@@ -14,6 +14,9 @@ class KorpExportFormatterText(KorpExportFormatter):
     filename_extension = ".txt"
 
     _option_defaults = {
+        "content_format": u"{info}{sentences}",
+        "title_format": u"## {title}\n",
+        "infoitems_format": u"{title}\n{infoitems}\n\n",
         "infoitem_format": u"## {label}:{sp_or_nl}{value}",
         "param_format": u"##   {label}: {value}",
         "param_sep": "\n",

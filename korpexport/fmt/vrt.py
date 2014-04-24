@@ -18,13 +18,13 @@ class KorpExportFormatterVRT(KorpExportFormatter):
     structured_format = True
 
     _option_defaults = {
-        # Currently no XML declaration since the result is not
-        # necessarily even well-formed XML
-        "content_format": (u"{info}\n<!-- {token_field_headings} -->\n"
+        "content_format": (u"{info}{token_field_headings}"
                            u"<korp_kwic>\n{sentences}</korp_kwic>\n"),
+        "title_format": u"<!-- {title} -->\n",
         "infoitem_format": u"<!-- {label}:{sp_or_nl}{value} -->",
         "param_format": u"       {label}: {value}",
         "param_sep": "\n",
+        "field_headings_format": u"<!-- Fields: {field_headings} -->\n",
         "token_format": u"{structs_open}{fields}\n{structs_close}",
         "token_field_sep": "\t",
         "token_sep": "",
@@ -39,11 +39,21 @@ class KorpExportFormatterVRT(KorpExportFormatter):
         "token_struct_close_format": u"</{name}>\n",
         "token_struct_attr_format": u"{name}=\"{value}\"",
         "token_struct_attr_sep": u" ",
-        "combine_token_structs": "True"
+        "combine_token_structs": "True",
+        # Currently no XML declaration by default since the result is
+        # not necessarily even well-formed XML
+        "xml_declaration": "False"
         }
 
     def __init__(self, *args, **kwargs):
         KorpExportFormatter.__init__(self, *args, **kwargs)
+
+    def _adjust_opts(self):
+        super(KorpExportFormatterVRT, self)._adjust_opts()
+        if self.get_option_bool("xml_declaration"):
+            self._opts["content_format"] = (
+                u'<?xml version="1.0" encoding="UTF-8" standalone="yes” ?>\n'
+                + self._opts["content_format"])
 
     # FIXME: Close open tags if the struct attribute value for a
     # sentence is different from the currently open one. Maybe also
