@@ -57,7 +57,7 @@ class KorpExporter(object):
         result["download_charset"] = self._formatter.download_charset
         result["download_content"] = (
             self._formatter.make_download_content(
-                self._query_result, self._query_params, self._opts)
+                self._query_result, self._query_params, self._opts, **kwargs)
             .encode(self._formatter.download_charset))
         result["download_content_type"] = self._formatter.mime_type
         result["download_filename"] = self._get_filename()
