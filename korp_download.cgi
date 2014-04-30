@@ -2,20 +2,48 @@
 # -*- coding: utf-8 -*-
 
 """
-korp_download.cgi
+A CGI script to export Korp search results to downloadable formats.
 
-A CGI script to convert Korp query results to downloadable formats
+The script uses modules in the korpexport package to do most of the
+work.
 
-The script requires the following CGI parameters:
-- query_result: the Korp query result to format
+The following CGI (query string) parameters are recognized and used by
+the script. If run from the command-line, the parameters are given as
+a single command-line argument, encoded as in a URL.
 
-The following CGI parameters are optional
-- format: the format to which to convert the result (json (default),
-  csv, tsv, ...)
-- filename: the (suggested) name of the file to generate (default:
-  korp_kwic_TIME.FMT, where time is the current time (YYYYMMDDhhmmss)
-  and FMT the format)
-- query_params: korp.cgi parameters for generating query_result
+Parameters:
+    query_params (JSON): `korp.cgi` parameters format for generating a
+        query result; if specified, `korp.cgi` is called to generate
+        the result
+    query_result (JSON): The Korp query result to format; overrides
+        `query_params`
+    format (string): The format to which to convert the result;
+        default: ``json`` (JSON)
+    filename (string): The (suggested) name of the file to generate;
+        default: ``korp_kwic_$querywords_$date_$time.$fmt``
+    korp_server (URL): The Korp server to query; default configured in
+       code
+    logfile (string): The name of the file to which to write log
+        messages; default configured in code; use /dev/null to disable
+        logging
+    debug (boolean): If specified, write debug messages to the log
+        file
+    
+The script requires at least one of the parameters `query_params` and
+`query_result` to make the search result for downloading.
+
+Additional parameters are recognized by formatter modules.
+
+To write a formatter for a new format, add a corresponding module to
+the package `korpexport.format`. Please see
+:mod:`korpexport.formatter` for more information.
+
+If the script is invoked directly from the command line (not via CGI),
+the it outputs log messages to standard error by default. This can be
+changed by specifying the parameter `logfile`.
+
+:Author: Jyrki Niemi <jyrki.niemi@helsinki.fi> for FIN-CLARIN
+:Date: 2014
 """
 
 
@@ -46,14 +74,16 @@ def main():
     """The main CGI handler, modified from that of korp.cgi.
 
     Converts CGI parameters to a dictionary and initializes logging.
-    The actual work is done in make_download_file its helper functions
-    below.
+    Invokes :func:`korpexport.exporter.make_download_file` to generate
+    downloadable content.
     """
     starttime = time.time()
     # Open unbuffered stdout
     sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
     # Convert form fields to regular dictionary with unicode values;
-    # assume that the input is encoded in UTF-8
+    # assume that the input is encoded in UTF-8. Note that this does
+    # not handle list values resulting form multiple occurrences of a
+    # parameter.
     form_raw = cgi.FieldStorage(keep_blank_values=1)
     form = dict((field, form_raw.getvalue(field).decode("utf-8"))
                 for field in form_raw.keys())
@@ -103,13 +133,22 @@ def main():
 
 
 def print_header(obj):
-    """Print header for the downloadable file (or error message) in obj.
+    """Print HTTP header for the downloadable file (or error message).
 
-    obj may contain the following keys affecting the output headers:
-    - download_content_type => Content-Type (default: text/plain)
-    - download_charset => Charset (default: utf-8)
-    - download_filename => Content-Disposition filename
-    - download_content => Length to Content-Length
+    Arguments:
+        obj (dict): The downloadable file contents and information
+            about it (or an error message); may contain the following
+            keys that affect the output headers:
+
+            - download_content_type => Content-Type (default:
+              ``text/plain``)
+            - download_charset => Charset (default: utf-8)
+            - download_filename => Content-Disposition filename
+            - download_content => Length of the content to
+              Content-Length
+
+            If `obj` contains the key ``ERROR``, output
+            ``text/plain``, not an attachment.
     """
     charset = obj.get("download_charset", "utf-8")
     print ("Content-Type: "
@@ -126,15 +165,26 @@ def print_header(obj):
 
 
 def make_content_disposition_attachment(filename):
-    """Return a Content-Disposition header with attachment filename
+    """Make a HTTP Content-Disposition header with attachment filename.
 
-    Encode the attachment filename in UTF-8 as specified in RFC 5987:
-    http://stackoverflow.com/questions/93551/how-to-encode-the-filename-parameter-of-content-disposition-header-in-http
-    According to the above discussion, this does not work with IE <9
-    and Android browsers. Moreover, if the file name contains a
-    non-ASCII character, at least Firefox 28 on Linux seems save an
-    empty file with the corresponding Latin-1 character in its name,
-    in addition to the real file.
+    Arguments:
+        filename (str): The file name to use for the attachment
+
+    Returns:
+        str: A HTTP ``Content-Disposition`` header for an attachment
+            with a parameter `filename` with a value `filename`
+
+    If `filename` contains non-ASCII characters, encode it in UTF-8 as
+    specified in RFC 5987 to the `Content-Disposition` header
+    parameter `filename*`, as showin in a `Stackoverflow discussion`_.
+    For a wider browser support, also provide a `filename` parameter
+    with the encoded filename. According to the discussion, this does
+    not work with IE prior to version 9 and Android browsers.
+    Moreover, at least Firefox 28 on Linux seems save an empty file
+    with the corresponding Latin-1 character in its name, in addition
+    to the real file.
+
+    .. _Stackoverflow discussion: http://stackoverflow.com/questions/93551/how-to-encode-the-filename-parameter-of-content-disposition-header-in-http
     """
     filename = urllib.quote(filename)
     return (("Content-Disposition: attachment; "
@@ -144,7 +194,12 @@ def make_content_disposition_attachment(filename):
 
 
 def print_object(obj):
-    """Print the downloadable content (or error message) in obj."""
+    """Print the downloadable content or an error message.
+
+    Arguments:
+        obj (dict): The downloadable content (in key
+            `download_content`) or an error message dict in `ERROR`.
+    """
     if "ERROR" in obj:
         error = obj["ERROR"]
         print "Error when trying to download results:"

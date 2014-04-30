@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 
+"""
+Format Korp query results in the VeRticalized Text (VRT) format of CWB.
+
+:Author: Jyrki Niemi <jyrki.niemi@helsinki.fi> for FIN-CLARIN
+:Date: 2014
+"""
+
 
 from __future__ import absolute_import
 
@@ -10,6 +17,21 @@ __all__ = ["KorpExportFormatterVRT"]
 
 
 class KorpExportFormatterVRT(KorpExportFormatter):
+
+    """
+    Format Korp results in VeRticalized Text format.
+
+    Handle the format type ``vrt``.
+
+    The formatter uses the following additional option:
+        xml_declaration (bool): Whether to add an XML declaration at
+            the beginning of the result; the default is `False`, since
+            the result is not necessarily even well-formed XML
+
+    The result contains matches marked with the element (structural
+    attribute) ``MATCH``. The start and end tags of elements in the
+    result are currently not necessarily paired correctly.
+    """
 
     formats = ["vrt"]
     mime_type = "text/plain"
@@ -39,8 +61,6 @@ class KorpExportFormatterVRT(KorpExportFormatter):
         "token_struct_attr_format": u"{name}=\"{value}\"",
         "token_struct_attr_sep": u" ",
         "combine_token_structs": "True",
-        # Currently no XML declaration by default since the result is
-        # not necessarily even well-formed XML
         "xml_declaration": "False"
         }
 

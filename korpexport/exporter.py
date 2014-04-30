@@ -1,5 +1,15 @@
 # -*- coding: utf-8 -*-
 
+"""
+The main module for exporting Korp search results to downloadable formats.
+
+It should generally be sufficient to call func:`make_download_file` to
+generate downloadable file contents.
+
+:Author: Jyrki Niemi <jyrki.niemi@helsinki.fi> for FIN-CLARIN
+:Date: 2014
+"""
+
 
 from __future__ import absolute_import
 
@@ -20,24 +30,65 @@ __all__ = ['make_download_file',
 
 
 def make_download_file(form, korp_server_url, **kwargs):
-    """Format query results and return them in a downloadable format."""
+    """Format Korp query results and return them in a downloadable format.
+
+    Arguments:
+        form (dict): Input form containing CGI (query string)
+            parameters
+        korp_server_url (str): Korp server URL
+
+    Keyword arguments:
+        **kwargs: Passed to class:`KorpExporter` constructor and its
+            method:`make_download_file`
+
+    Returns:
+        dict: The downloadable file content and meta information;
+            contains the following information (strings):
+
+            - download_content: The actual file content
+            - download_charset: The character encoding of the file
+              content
+            - download_content_type: MIME type for the content
+            - download_filename: Name of the file
+    """
     exporter = KorpExporter(form, **kwargs)
     return exporter.make_download_file(korp_server_url, **kwargs)
 
 
 class KorpExportError(Exception):
 
+    """An exception class for errors in exporting Korp query results."""
+
     pass
 
 
 class KorpExporter(object):
 
+    """A class for exporting Korp query results to a downloadable file."""
+
     _FORMATTER_SUBPACKAGE = "format"
+    """The `korpexport` subpackage containing actual formatter modules"""
+
     _filename_format_default = u"korp_kwic_{cqpwords:.60}_{date}_{time}{ext}"
+    """Default filename format"""
 
     def __init__(self, form, options=None, filename_format=None,
                  filename_encoding="utf-8"):
+        """Construct a KorpExporter.
+
+        Arguments:
+            form (dict): CGI (query string) parameters
+
+        Keyword arguments:
+            options (dict): Options passed to formatter
+            filename_format (unicode): A format specification for the
+                resulting filename; may contain the following format
+                keys: cqpwords, start, end, date, time, ext
+            filename_encoding (str): The encoding to use for the
+                filename
+        """
         self._form = form
+        # TODO: Get the filename format from the form if specified
         self._filename_format = filename_format or self._filename_format_default
         self._filename_encoding = filename_encoding
         self._opts = options or {}
@@ -46,7 +97,19 @@ class KorpExporter(object):
         self._formatter = None
 
     def make_download_file(self, korp_server_url, **kwargs):
-        """Format query results and return them in a downloadable format."""
+        """Format query results and return them in a downloadable format.
+
+        Arguments:
+            korp_server_url (str): The Korp server to query
+
+        Keyword arguments:
+            form (dict): Use the parameters in here instead of those
+                provided to the constructor
+            **kwargs: Passed on to formatter
+
+        Returns:
+            dict: As described above in :func:`make_download_file`
+        """
         result = {}
         if "form" in kwargs:
             self._form = kwargs["form"]
@@ -64,6 +127,15 @@ class KorpExporter(object):
         return result
 
     def _get_formatter(self, **kwargs):
+        """Get a formatter instance for the format specified in self._form.
+
+        Keyword arguments:
+            options: Override the options passed to constructor
+            **kwargs: Passed to formatter constructor
+
+        Returns:
+            An instance of a korpexport.KorpExportFormatter subclass
+        """
         format_name = self._form.get("format", "json").lower()
         formatter_class = self._find_formatter_class(format_name)
         # Options passed to _get_formatter() override those passed to
@@ -75,6 +147,22 @@ class KorpExporter(object):
         return formatter_class(format_name, **kwargs)
 
     def _find_formatter_class(self, format_name):
+        """Find a formatter class for the specified format.
+        
+        Arguments:
+            format_name: The name of the format for which to find a
+                formatter class
+
+        Returns:
+            class: The formatter class for `format_name`
+
+        Raises:
+            KorpExportError: If no formatter found for `format_name`
+
+        Searches for a formatter in the classes of
+        package:`korpexport.format` modules, and returns the first
+        whose `format` attribute contains `format_name`.
+        """
         pkgpath = os.path.join(os.path.dirname(__file__),
                                self._FORMATTER_SUBPACKAGE)
         for _, module_name, _ in pkgutil.iter_modules([pkgpath]):
@@ -95,12 +183,20 @@ class KorpExporter(object):
                               .format(format_name))
 
     def process_query(self, korp_server_url, query_params=None):
-        """Get the query result in form or perform query via the Korp server.
+        """Get the query result in form or perform query via a Korp server.
 
-        If form contains query_result, return it. Otherwise return the
-        result obtained by performing a query to Korp server at
-        korp_server_url using query_params. The returned value is a
-        dictionary converted from JSON.
+        Arguments:
+            korp_server_url (str): The Korp server to query
+            query_params (dict): Korp query parameters
+
+        If `self._form` contains `query_result`, use it. Otherwise use
+        the result obtained by performing a query to the Korp server
+        at `korp_server_url`. The query parameters are retrieved from
+        argument `query_params`, form field `query_params` (as JSON)
+        or the form as a whole.
+
+        Set a private attribute to contain the result, a dictionary
+        converted from the JSON returned by Korp.
         """
         if "query_result" in self._form:
             query_result_json = self._form.get("query_result", "{}")
@@ -136,21 +232,37 @@ class KorpExporter(object):
         logging.debug("query result: %s", self._query_result)
 
     def _extract_options(self, korp_server_url=None):
-        """Extract formatting options from form, affected by query_params."""
+        """Extract formatting options from form, affected by query params.
+
+        Arguments:
+            korp_server_url: The default Korp server URL; may be
+                overridden by options on the form.
+
+        Returns:
+            dict: The extracted options.
+
+        Extract options from the form: take the values of all
+        parameters for which `_default_options` contains an option
+        with the same name.
+
+        In addition, the values of the CGI parameters `attrs` and
+        `structs` control the attributes and structures to be shown in
+        the result. Their values may be comma-separated lists of the
+        following:
+
+        - attribute or structure names;
+        - ``*`` for those listed in the corresponding query parameter
+          (`show` or `show_struct`);
+        - ``+`` for all of those that actually occur in the
+          corresponding query result structure; and
+        - ``-attr`` for excluding the attribute or structure ``attr``
+          (used following ``*`` or ``+``).
+        """
         opts = {}
 
         def extract_show_opt(opt_name, query_param_name,
                              query_result_struct_name):
             """Set the show option opt_name based on query params and result.
-
-            If the form contains parameter opt_name, set the option
-            opt_name to be a list of attributes or structures to be
-            shown. The value of the form parameter may be a
-            comma-separated string of attribute names; * for all the
-            attributes listed in the query parameter query_param_name;
-            + for all of those that actually occur in query result
-            structure query_result_struct_name; -attr for excluding
-            attr (used following with * or +).
             """
             if opt_name in self._form:
                 vals = self._form[opt_name].split(",")
@@ -187,6 +299,25 @@ class KorpExporter(object):
         return opts
 
     def _get_filename(self):
+        """Return the filename for the result, from form or formatted.
+
+        If the form contains parameter `filename`, return it;
+        otherwise format using `self._filename_format`. The filename
+        format may contain the following keys (specified as
+        ``{key}``):
+
+        - date: Current date in *yyyymmdd* format
+        - time: Current time in *hhmmss* format
+        - ext: Filename extension, including the period
+        - cqpwords: The words in the CQP query for the Korp result to
+          be exported
+        - start: The number of the first result
+        - end: The number of the last result
+        """
+        # FIXME: Get a time first and then format it, to avoid the
+        # unlikely possibility of date changing between formatting the
+        # date and time.
+        # TODO: User-specified date and time formatting
         return (self._form.get(
                 "filename",
                 self._filename_format.format(
@@ -200,6 +331,19 @@ class KorpExporter(object):
 
     def _make_cqp_filename_repr(self, attrs=False, keep_chars=None,
                                 replace_char='_'):
+        """Make a representation of the CQP query for the filename
+
+        Arguments:
+            attrs (bool): Whether to include attribute names in the
+                result (unimplemented)
+            keep_chars (str): The (punctuation) characters to retain
+                in the CQP query
+            replace_char (str): The character with which to replace
+                characters removed from the CQP query
+
+        Returns:
+            unicode: A representation of the CQP query 
+        """
         # TODO: If attrs is True, include attribute names. Could we
         # encode somehow the operator which could be != or contains?
         words = re.findall(r'\"((?:[^\\\"]|\\.)*?)\"',
@@ -209,6 +353,8 @@ class KorpExporter(object):
         return replace_char.join(replace_chars_re.sub(replace_char, word)
                                  for word in words)
 
+
+# For testing: find formatter class for format "json".
 
 if __name__ == "__main__":
     print KorpExporter._find_formatter_class('json')

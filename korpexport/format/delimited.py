@@ -1,5 +1,15 @@
 # -*- coding: utf-8 -*-
 
+"""
+Format Korp query results in various delimited fields formats.
+
+This module contains Korp result formatters for CSV (sentence per
+line), CSV tokens (token per line), TSV (sentence per line).
+
+:Author: Jyrki Niemi <jyrki.niemi@helsinki.fi> for FIN-CLARIN
+:Date: 2014
+"""
+
 
 from __future__ import absolute_import
 
@@ -12,7 +22,29 @@ __all__ = ['KorpExportFormatterCSV',
            'KorpExportFormatterTSV']
 
 
+# TODO: Reorganize the classes so that we could more easily have both
+# comma- and tab-separated versions of both sentence per line and
+# token per line formats.
+
+
 class KorpExportFormatterDelimited(KorpExportFormatter):
+
+    """
+    Format Korp query results in a delimited fields format.
+
+    The superclass for actual formatters of delimited-fields formats.
+
+    The formatter uses the following options (in `_option_defaults`)
+    in addition to those specified in :class:`KorpExportFormatter`:
+        delimiter (str): The delimiter with which to separate fields
+        quote (str): The quote character around fields
+        replace_quote (str): The string with which to replace quote
+            characters occurring in field values
+
+    The fields returned by the formatting methods should be delimited
+    by tabs; they are converted to the final delimiter in
+    `_postprocess`.
+    """
 
     _option_defaults = {
         "content_format": u"{sentence_field_headings}{sentences}\n\n{info}",
@@ -34,6 +66,13 @@ class KorpExportFormatterDelimited(KorpExportFormatter):
         KorpExportFormatter.__init__(self, *args, **kwargs)
 
     def _postprocess(self, text):
+        """Add quotes around fields in `text` if specified.
+
+        Add the quotes specified with option ``quotes`` and convert
+        tabs to the final field separator.
+        """
+        # FIXME: This does not work correctly if fields are not quoted
+        # but the field separator is other than the tab
         if self._opts["quote"]:
             return "\n".join(self._quote_line(line)
                              for line in text.split("\n"))
@@ -41,6 +80,7 @@ class KorpExportFormatterDelimited(KorpExportFormatter):
             return text
 
     def _quote_line(self, line):
+        """Add quotes around the fields (separated by tabs) in `line`."""
         if line == "":
             return line
         else:
@@ -48,11 +88,20 @@ class KorpExportFormatterDelimited(KorpExportFormatter):
                                                 for field in line.split("\t"))
 
     def _quote_field(self, text):
+        """Add quotes around `text` and replace quotes within `text`."""
         quote = self._opts["quote"]
         return quote + text.replace(quote, self._opts["replace_quote"]) + quote
 
 
 class KorpExportFormatterCSV(KorpExportFormatterDelimited):
+
+    r"""
+    Format Korp results in comma-separated values format, sentence per line.
+
+    Handle the format type ``csv``.
+
+    The result uses \r\n as newlines, as it is specified in RFC 4180.
+    """
 
     formats = ["csv"]
     mime_type = "text/csv"
@@ -67,6 +116,17 @@ class KorpExportFormatterCSV(KorpExportFormatterDelimited):
 
 
 class KorpExportFormatterCSVTokens(KorpExportFormatterCSV):
+
+    r"""
+    Format Korp results in comma-separated values format, token per line.
+
+    Handle the format type ``csv_tokens`` == ``csvp``.
+
+    The formatter uses the following additional option:
+        match_field (int): The position of the match marker field: if
+            empty, no match marker field; if 0, as the first field;
+            otherwise as the last field
+    """
 
     # csvp is an alias for csv_tokens
     formats = ["csv_tokens", "csvp"]
@@ -84,6 +144,7 @@ class KorpExportFormatterCSVTokens(KorpExportFormatterCSV):
         "sentence_fields": "left_context,match,right_context",
         "sentence_field_format": u"{value}",
         "sentence_field_sep": "",
+        # Skip empty fields or fields containing only spaces
         "sentence_field_skip": r"\s*",
         "token_format": u"{fields}\n",
         "token_noattrs_format": u"{fields}\n",
@@ -99,6 +160,7 @@ class KorpExportFormatterCSVTokens(KorpExportFormatterCSV):
         KorpExportFormatterCSV.__init__(self, *args, **kwargs)
 
     def _adjust_opts(self):
+        """Add a match field to ``token_fields`` based on ``match_field``."""
         super(KorpExportFormatterCSVTokens, self)._adjust_opts()
         if self._opts["match_field"]:
             if self._opts["match_field"] == "0":
@@ -108,6 +170,12 @@ class KorpExportFormatterCSVTokens(KorpExportFormatterCSV):
 
 
 class KorpExportFormatterTSV(KorpExportFormatterDelimited):
+
+    """
+    Format Korp results in tab-separated values format, sentence per line.
+
+    Handle the format type ``tsv``.
+    """
 
     formats = ["tsv"]
     mime_type = "text/tsv"

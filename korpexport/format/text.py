@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 
+"""
+Format Korp query results in plain text formats.
+
+:Author: Jyrki Niemi <jyrki.niemi@helsinki.fi> for FIN-CLARIN
+:Date: 2014
+"""
+
 
 from __future__ import absolute_import
 
@@ -8,9 +15,24 @@ from korpexport.formatter import KorpExportFormatter
 
 class KorpExportFormatterText(KorpExportFormatter):
 
+    """
+    Format Korp query results in plain text.
+
+    Handle the format type ``text``.
+
+    The resulting content has the following features when using the
+    default options: title and info items are at the beginning, each
+    preceded by "##". Each sentence is on its own line, matches marked
+    with ``<<<`` and ``>>>``. The sentence tokens are followed by
+    ``||`` and structural attributes separated by a ``|``.
+    """
+
     formats = ["text"]
     mime_type = "text/plain"
     filename_extension = ".txt"
+
+    # This class only modifies `_option_defaults` values; all the
+    # methods are as inherited from :class:`KorpExportFormatter`.
 
     _option_defaults = {
         "content_format": u"{info}{sentences}",
