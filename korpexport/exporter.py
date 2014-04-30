@@ -88,8 +88,9 @@ class KorpExporter(object):
                 filename
         """
         self._form = form
-        # TODO: Get the filename format from the form if specified
-        self._filename_format = filename_format or self._filename_format_default
+        self._filename_format = (filename_format
+                                 or form.get("filename_format")
+                                 or self._filename_format_default)
         self._filename_encoding = filename_encoding
         self._opts = options or {}
         self._query_params = {}

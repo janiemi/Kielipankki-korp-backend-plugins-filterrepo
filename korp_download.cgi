@@ -19,8 +19,13 @@ Parameters:
         `query_params`
     format (string): The format to which to convert the result;
         default: ``json`` (JSON)
+    filename_format (string): A format specification for the
+        (suggested) name of the file to generate; may contain the
+        following format keys: ``cqpwords``, ``start``, ``end``,
+        ``date``, ``time``, ``ext``; default:
+        ``korp_kwic_{cqpwords}_{date}_{time}.{ext}``
     filename (string): The (suggested) name of the file to generate;
-        default: ``korp_kwic_$querywords_$date_$time.$fmt``
+        overrides `filename_format`
     korp_server (URL): The Korp server to query; default configured in
        code
     logfile (string): The name of the file to which to write log
