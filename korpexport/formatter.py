@@ -298,7 +298,7 @@ class KorpExportFormatter(object):
             "match_pos": "match position",
             "left_context": "left context",
             "right_context": "right context",
-            "aligned_text": "aligned text"
+            "aligned": "aligned text"
             },
         "sentence_field_format": u"{value}",
         "sentence_field_sep": "",
@@ -411,12 +411,12 @@ class KorpExportFormatter(object):
 
             If `item` is of the form ``*name``, replace it with a list
             containing the items in the option ``name``; if `item` is
-            ``?aligned_text``, add ``aligned_text`` only if the corpus
-            is a parallel corpus. The return value is a list.
+            ``?aligned``, add ``aligned`` only if the corpus is a
+            parallel corpus. The return value is a list.
             """
             if item.startswith("*"):
                 return self._opts.get(item[1:], [])
-            elif item == "?aligned_text":
+            elif item == "?aligned":
                 return ([item[1:]] if qr.is_parallel_corpus(self._query_result)
                         else [])
             else:
@@ -844,17 +844,15 @@ class KorpExportFormatter(object):
 
         Format keys in ``aligned_format``: ``align_key`` (the name of
         the alignment attribute; in practice, the id of the aligned
-        corpus in lowercase), ``sentence`` (the aligned sentence).
+        corpus in lowercase), ``sentence`` (the aligned sentence as a
+        formatted string of tokens).
         """
-        # FIXME: This does not seem to work: the sentence is empty in
-        # the output! The problem might be elsewhere as well: maybe
-        # using "aligned" as the item_type and "aligned_text" as the
-        # name of the corresponding sentence field.
         align_key, sentence = aligned_sentence
-        return self._format_item("aligned",
-                                 align_key=align_key,
-                                 sentence=sentence,
-                                 **format_args)
+        return self._format_item(
+            "aligned",
+            align_key=align_key,
+            sentence=self._format_tokens(sentence, **format_args),
+            **format_args)
 
     def _format_structs(self, sentence, **kwargs):
         """Format the strucutral attributes of `sentence`.

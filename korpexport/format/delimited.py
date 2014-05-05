@@ -55,7 +55,7 @@ class KorpExportFormatterDelimited(KorpExportFormatter):
         "sentence_format": u"{fields}",
         "sentence_sep": "\n",
         "sentence_fields": ("corpus,match_pos,left_context,match,"
-                            "right_context,?aligned_text,*structs"),
+                            "right_context,?aligned,*structs"),
         "sentence_field_sep": "\t",
         "delimiter": u",",
         "quote": u"\"",
