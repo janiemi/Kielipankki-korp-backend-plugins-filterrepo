@@ -332,21 +332,22 @@ class KorpExportFormatter(object):
     _formatter = _PartialStringFormatter("[none]")
     """A string formatter: missing keys in formats shown as ``[none]``."""
 
-    def __init__(self, format_name, options=None, **kwargs):
+    def __init__(self, **kwargs):
         """Construct a formatter instance.
 
-        Construct a formatter instance for format `format_name`. The
-        options `options` override the values in the class attribute
-        `_option_defaults` for the instance attribute `_opts`. Other
-        keyword arguments `kwargs` are currently ignored.
+        Construct a formatter instance for format `kwargs["format"]`.
+        The options `kwargs["options"]` override the values in the
+        class attribute `_option_defaults` for the instance attribute
+        `_opts`. Other keyword arguments `kwargs` are currently
+        ignored.
 
         Subclass constructors should call this constructor to ensure
         that all the relevant instance attributes are defined.
         """
-        self._format_name = format_name
+        self._format_name = kwargs.get("format")
         self._opts = {}
         self._opts.update(self.__class__._option_defaults)
-        self._opts.update(options or {})
+        self._opts.update(kwargs.get("options", {}))
         self._query_params = {}
         self._query_result = {}
 

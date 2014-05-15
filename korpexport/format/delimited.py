@@ -62,8 +62,8 @@ class KorpExportFormatterDelimited(KorpExportFormatter):
         "replace_quote": u"\"\"",
         }
 
-    def __init__(self, *args, **kwargs):
-        KorpExportFormatter.__init__(self, *args, **kwargs)
+    def __init__(self, **kwargs):
+        super(KorpExportFormatterDelimited, self).__init__(**kwargs)
 
     def _postprocess(self, text):
         """Add quotes around fields in `text` if specified.
@@ -111,8 +111,8 @@ class KorpExportFormatterCSV(KorpExportFormatterDelimited):
         "newline": "\r\n",
         }
 
-    def __init__(self, *args, **kwargs):
-        KorpExportFormatterDelimited.__init__(self, *args, **kwargs)
+    def __init__(self, **kwargs):
+        super(KorpExportFormatterCSV, self).__init__(**kwargs)
 
 
 class KorpExportFormatterCSVTokens(KorpExportFormatterCSV):
@@ -156,8 +156,8 @@ class KorpExportFormatterCSVTokens(KorpExportFormatterCSV):
         "match_field": "0"
         }
 
-    def __init__(self, *args, **kwargs):
-        KorpExportFormatterCSV.__init__(self, *args, **kwargs)
+    def __init__(self, **kwargs):
+        super(KorpExportFormatterCSVTokens, self).__init__(**kwargs)
 
     def _adjust_opts(self):
         """Add a match field to ``token_fields`` based on ``match_field``."""
@@ -186,5 +186,5 @@ class KorpExportFormatterTSV(KorpExportFormatterDelimited):
         "quote": u"",
         "replace_quote": u""}
 
-    def __init__(self, *args, **kwargs):
-        KorpExportFormatterDelimited.__init__(self, *args, **kwargs)
+    def __init__(self, **kwargs):
+        super(KorpExportFormatterTSV, self).__init__(**kwargs)

@@ -131,8 +131,8 @@ class KorpExporter(object):
         """Get a formatter instance for the format specified in self._form.
 
         Keyword arguments:
-            options: Override the options passed to constructor
-            **kwargs: Passed to formatter constructor
+            **kwargs: Passed to formatter constructor; "options"
+                override the options passed to exporter constructor
 
         Returns:
             An instance of a korpexport.KorpExportFormatter subclass
@@ -144,8 +144,9 @@ class KorpExporter(object):
         opts = {}
         opts.update(self._opts)
         opts.update(kwargs.get("options", {}))
+        kwargs["format"] = format_name
         kwargs["options"] = opts
-        return formatter_class(format_name, **kwargs)
+        return formatter_class(**kwargs)
 
     def _find_formatter_class(self, format_name):
         """Find a formatter class for the specified format.

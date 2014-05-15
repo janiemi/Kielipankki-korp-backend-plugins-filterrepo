@@ -64,8 +64,8 @@ class KorpExportFormatterVRT(KorpExportFormatter):
         "xml_declaration": "False"
         }
 
-    def __init__(self, *args, **kwargs):
-        KorpExportFormatter.__init__(self, *args, **kwargs)
+    def __init__(self, **kwargs):
+        super(KorpExportFormatterVRT, self).__init__(**kwargs)
 
     def _adjust_opts(self):
         super(KorpExportFormatterVRT, self)._adjust_opts()

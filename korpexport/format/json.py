@@ -41,8 +41,8 @@ class KorpExportFormatterJSON(KorpExportFormatter):
         "indent": "4"
         }
 
-    def __init__(self, *args, **kwargs):
-        KorpExportFormatter.__init__(self, *args, **kwargs)
+    def __init__(self, **kwargs):
+        super(KorpExportFormatterJSON, self).__init__(**kwargs)
 
     # This class does not use the formatting methods or
     # `_option_default` values in :class:`KorpExportFormatter`.
