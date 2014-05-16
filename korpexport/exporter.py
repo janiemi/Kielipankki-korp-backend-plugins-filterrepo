@@ -118,10 +118,11 @@ class KorpExporter(object):
         self.process_query(korp_server_url)
         logging.debug('formatter: %s', self._formatter)
         result["download_charset"] = self._formatter.download_charset
-        result["download_content"] = (
-            self._formatter.make_download_content(
-                self._query_result, self._query_params, self._opts, **kwargs)
-            .encode(self._formatter.download_charset))
+        content = self._formatter.make_download_content(
+            self._query_result, self._query_params, self._opts, **kwargs)
+        if isinstance(content, unicode) and self._formatter.download_charset:
+            content = content.encode(self._formatter.download_charset)
+        result["download_content"] = content
         result["download_content_type"] = self._formatter.mime_type
         result["download_filename"] = self._get_filename()
         logging.debug('make_download_file result: %s', result)

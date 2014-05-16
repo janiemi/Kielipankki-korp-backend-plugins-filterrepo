@@ -155,12 +155,12 @@ def print_header(obj):
             If `obj` contains the key ``ERROR``, output
             ``text/plain``, not an attachment.
     """
-    charset = obj.get("download_charset", "utf-8")
+    charset = obj.get("download_charset")
     print ("Content-Type: "
            + (obj.get("download_content_type", "text/plain")
               if "ERROR" not in obj
               else "text/plain")
-           + "; charset=" + charset)
+           + (("; charset=" + charset) if charset else ""))
     if "ERROR" not in obj:
         # Default filename 
         print make_content_disposition_attachment(
