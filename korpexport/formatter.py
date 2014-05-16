@@ -57,46 +57,6 @@ class _PartialStringFormatter(string.Formatter):
                 value, spec)
 
 
-class _KorpExportFormatterMetaclass(type):
-
-    """
-    A metaclass for KorpExportFormatter to handle option default inheritance.
-
-    This metaclass modifies the class attribute `_option_defaults` (a
-    dict), so that it inherits values for unspecified keys from
-    superclasses. Values specified lower in the class hierarchy take
-    precedence.
-
-    Normal attribute inheritance would overwrite the attribute as a
-    whole, which is not desired here. The same effect would be
-    achieved by having each `_option_defaults` key as its own (class)
-    attribute, but having them in a single dict reduces attribute
-    clutter.
-    """
-
-    # Would it nevertheless be better to use class attributes without
-    # resorting to a metaclass?
-
-    def __init__(self, classname, bases, attrs):
-        """Construct a class with `_option_defaults` inheritance."""
-        super(_KorpExportFormatterMetaclass, self).__init__(classname, bases,
-                                                            attrs)
-        self._make_option_defaults(bases)
-
-    def _make_option_defaults(self, base_classes):
-        """Set _option_defaults based on `base_classes` and `self`."""
-        new_option_defaults = {}
-        # We need not go further than the immediate superclasses,
-        # since they have already inherited option default values from
-        # their superclasses.
-        for cls in list(base_classes) + [self]:
-            try:
-                new_option_defaults.update(cls._option_defaults)
-            except AttributeError:
-                pass
-        self._option_defaults = new_option_defaults
-
-
 class KorpExportFormatter(object):
 
     r"""
@@ -229,11 +189,6 @@ class KorpExportFormatter(object):
             separate match field of a token)
     """
 
-    # The metaclass for handling _option_defaults value inheritance;
-    # __metaclass__ is inherited, so this need not be specified in
-    # subclasses
-    __metaclass__ = _KorpExportFormatterMetaclass
-
     formats = []
     """The names (ids) of the formats that the class handles."""
     download_charset = "utf-8"
@@ -346,10 +301,28 @@ class KorpExportFormatter(object):
         """
         self._format_name = kwargs.get("format")
         self._opts = {}
-        self._opts.update(self.__class__._option_defaults)
+        self._opts.update(self._get_combined_option_defaults())
         self._opts.update(kwargs.get("options", {}))
         self._query_params = {}
         self._query_result = {}
+
+    @classmethod
+    def _get_combined_option_defaults(cls):
+        """Get `_option_defaults` also containing inherited values.
+
+        The returned dict contains values of the class attribute
+        `_option_defaults` from all superclasses so that values from
+        classes earlier in the MRO override values from those later.
+        """
+        option_defaults_combined = {}
+        # Skip the last class in MRO, since it is `object`, which does
+        # not contain `_option_defaults`.
+        for superclass in reversed(cls.__mro__[:-1]):
+            try:
+                option_defaults_combined.update(superclass._option_defaults)
+            except AttributeError:
+                pass
+        return option_defaults_combined
 
     def get_options(self):
         """Get the options in effect (a dict)."""
