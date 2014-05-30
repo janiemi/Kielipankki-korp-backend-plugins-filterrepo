@@ -756,16 +756,19 @@ class KorpExportFormatter(object):
             corpus=qr.get_sentence_corpus(sentence),
             match_pos=qr.get_sentence_match_position(sentence),
             tokens=self._format_tokens(
-                qr.get_sentence_tokens_all(sentence)),
+                qr.get_sentence_tokens_all(sentence), tokens_type="all",
+                **kwargs),
             match=self._format_tokens(
-                qr.get_sentence_tokens_match(sentence),
-                match_mark=self._opts.get("match_marker", "")),
+                qr.get_sentence_tokens_match(sentence), tokens_type="match",
+                match_mark=self._opts.get("match_marker", ""), **kwargs),
             match_open=self._opts["match_open"],
             match_close=self._opts["match_close"],
             left_context=self._format_tokens(
-                qr.get_sentence_tokens_left_context(sentence)),
+                qr.get_sentence_tokens_left_context(sentence),
+                tokens_type="left_context", **kwargs),
             right_context=self._format_tokens(
-                qr.get_sentence_tokens_right_context(sentence)),
+                qr.get_sentence_tokens_right_context(sentence),
+                tokens_type="right_context", **kwargs),
             aligned=self._format_aligned_sentences(sentence),
             structs=self._format_structs(sentence),
             struct=struct,
@@ -825,7 +828,8 @@ class KorpExportFormatter(object):
         return self._format_item(
             "aligned",
             align_key=align_key,
-            sentence=self._format_tokens(sentence, **format_args),
+            sentence=self._format_tokens(
+                sentence, tokens_type="aligned", **format_args),
             **format_args)
 
     def _format_structs(self, sentence, **kwargs):
