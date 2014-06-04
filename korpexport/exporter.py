@@ -116,6 +116,8 @@ class KorpExporter(object):
             self._form = kwargs["form"]
         self._formatter = self._formatter or self._get_formatter(**kwargs)
         self.process_query(korp_server_url)
+        if "ERROR" in self._query_result:
+            return self._query_result
         logging.debug('formatter: %s', self._formatter)
         result["download_charset"] = self._formatter.download_charset
         content = self._formatter.make_download_content(
@@ -230,9 +232,11 @@ class KorpExporter(object):
             if "sort" not in self._query_params:
                 self._query_params["sort"] = "none"
         self._query_result = json.loads(query_result_json)
+        logging.debug("query result: %s", self._query_result)
+        if "ERROR" in self._query_result:
+            return
         self._opts = self._extract_options(korp_server_url)
         logging.debug("opts: %s", self._opts)
-        logging.debug("query result: %s", self._query_result)
 
     def _extract_options(self, korp_server_url=None):
         """Extract formatting options from form, affected by query params.
