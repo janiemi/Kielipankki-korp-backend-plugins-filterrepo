@@ -19,12 +19,12 @@ from __future__ import absolute_import
 
 def get_sentences(query_result):
     """Get the sentences  contained in `query_result`."""
-    return query_result["kwic"]
+    return query_result.get("kwic", [])
 
 
 def get_hitcount(query_result):
     """Get the total number of hits in `query_result`."""
-    return query_result["hits"]
+    return query_result.get("hits", 0)
 
 
 def get_corpus_hitcount(query_result, corpus=None):
@@ -43,9 +43,9 @@ def get_corpus_hitcount(query_result, corpus=None):
             hits as the value.
     """
     if corpus is None:
-        return query_result["corpus_hits"]
+        return query_result.get("corpus_hits", {})
     else:
-        return query_result["corpus_hits"].get(corpus)
+        return query_result.get("corpus_hits", {}).get(corpus, 0)
 
 
 def get_occurring_attrnames(query_result, keys, struct_name):
