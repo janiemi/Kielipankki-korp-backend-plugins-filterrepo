@@ -21,6 +21,8 @@ import urllib, urllib2
 import re
 import logging
 
+from subprocess import Popen, PIPE
+
 import korpexport.queryresult as qr
 
 
@@ -212,6 +214,8 @@ class KorpExporter(object):
                 self._query_params = json.loads(self._form.get("query_params"))
             else:
                 self._query_params = self._form
+            if "debug" in self._form and "debug" not in self._query_params:
+                self._query_params["debug"] = self._form["debug"]
             # If the format uses structural information, add the
             # structs in param "show_struct" to "show", so that tokens
             # are associated with information on opening and closing
@@ -220,23 +224,74 @@ class KorpExporter(object):
             if self._formatter.structured_format:
                 self._query_params["show"] += self._query_params["show_struct"]
             logging.debug("query_params: %s", self._query_params)
-            # Encode the query parameters in UTF-8 for Korp server
-            query_params_utf8 = dict(
-                (key, val.encode("utf-8"))
-                for key, val in self._query_params.iteritems())
-            query_result_json = (
-                urllib2.urlopen(korp_server_url,
-                                urllib.urlencode(query_params_utf8))
-                .read())
+            query_result_json = self._query_korp_server(korp_server_url)
             # Support "sort" in format params even if not specified
             if "sort" not in self._query_params:
                 self._query_params["sort"] = "none"
         self._query_result = json.loads(query_result_json)
         logging.debug("query result: %s", self._query_result)
-        if "ERROR" in self._query_result:
+        if "ERROR" in self._query_result or "kwic" not in self._query_result:
             return
         self._opts = self._extract_options(korp_server_url)
         logging.debug("opts: %s", self._opts)
+
+    def _query_korp_server(self, url_or_progname):
+        """Query a Korp server, either via HTTP or as a subprocess.
+
+        If url_or_progname begins with "http", make a query via HTTP.
+        Otherwise assume it as program name and call it directly as a
+        subprocess but make it believe that it is run via CGI. The
+        latter approach passes the environment variable values of this
+        script to the Korp server, so it gets e.g. the Sibboleth
+        authentication informatin. (Could the authentication
+        information be passed when using HTTP by adding appropriate
+        request headers?)
+        """
+
+        def adjust_path(name_src, ref_name_src, ref_name_dst):
+            """Make a name that is to name_src as ref_name_dst is to
+            ref_name_src."""
+            # FIXME: This works only if path separator is a slash
+            src_common_prefix = os.path.commonprefix([name_src, ref_name_src])
+            ref_name_suffix_len = len(ref_name_src) - len(src_common_prefix)
+            name_suffix_len = len(name_src) - len(src_common_prefix)
+            return (ref_name_dst[:-ref_name_suffix_len]
+                    + name_src[-name_suffix_len:])
+
+        # Encode the query parameters in UTF-8 for Korp server
+        logging.debug("Korp server: %s", url_or_progname)
+        logging.debug("Korp query params: %s", self._query_params)
+        query_params_encoded = urllib.urlencode(
+            dict((key, val.encode("utf-8"))
+                 for key, val in self._query_params.iteritems()))
+        logging.debug("Encoded query params: %s", query_params_encoded)
+        logging.debug("Env: %s", os.environ)
+        if url_or_progname.startswith("http"):
+            return urllib2.urlopen(url_or_progname, query_params_encoded).read()
+        else:
+            env = {}
+            # Pass the environment of this scropt appropriately
+            # modified, so that Korp server script thinks it is run
+            # via CGI.
+            env.update(os.environ)
+            # Adjusting the script names is perhaps not necessary but
+            # we do it for completeness sake.
+            script_name = adjust_path(
+                url_or_progname, env["SCRIPT_FILENAME"], env["SCRIPT_NAME"])
+            env.update(
+                {"SCRIPT_FILENAME": url_or_progname,
+                 "SCRIPT_NAME": script_name,
+                 "REQUEST_URI": script_name,
+                 "REQUEST_METHOD": "POST",
+                 "QUERY_STRING": "",
+                 "CONTENT_TYPE": "application/x-www-form-urlencoded",
+                 "CONTENT_LENGTH": str(len(query_params_encoded))})
+            logging.debug("Env modified: %s", env)
+            p = Popen(url_or_progname, stdin=PIPE, stdout=PIPE, env=env)
+            output = p.communicate(query_params_encoded)[0]
+            logging.debug("Korp server output: %s", output)
+            # Remove HTTP headers from the result
+            return re.sub(r"(?s)^.*?\n\n", "", output, count=1)
 
     def _extract_options(self, korp_server_url=None):
         """Extract formatting options from form, affected by query params.

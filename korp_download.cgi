@@ -56,6 +56,7 @@ from __future__ import absolute_import
 
 import sys
 import os
+import os.path
 import time
 import cgi
 import logging
@@ -65,7 +66,10 @@ import korpexport.exporter as ke
 
 
 # Default Korp server URL
-KORP_SERVER = "http://localhost/cgi-bin/korp/korp.cgi"
+# The URL does not work with restricted corpora but the script name
+# does
+# KORP_SERVER = "http://localhost/cgi-bin/korp/korp.cgi"
+KORP_SERVER = os.path.join(os.path.dirname(__file__), "korp.cgi")
 
 # Path to log file; use /dev/null to disable logging
 LOG_FILE = "/v/korp/log/korp-cgi.log"
