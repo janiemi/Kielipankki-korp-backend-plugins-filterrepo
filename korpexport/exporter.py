@@ -277,7 +277,8 @@ class KorpExporter(object):
             # Adjusting the script names is perhaps not necessary but
             # we do it for completeness sake.
             script_name = adjust_path(
-                url_or_progname, env["SCRIPT_FILENAME"], env["SCRIPT_NAME"])
+                url_or_progname, env.get("SCRIPT_FILENAME", ""),
+                env.get("SCRIPT_NAME", ""))
             env.update(
                 {"SCRIPT_FILENAME": url_or_progname,
                  "SCRIPT_NAME": script_name,
