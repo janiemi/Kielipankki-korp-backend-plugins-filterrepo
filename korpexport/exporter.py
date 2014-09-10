@@ -143,7 +143,7 @@ class KorpExporter(object):
             An instance of a korpexport.KorpExportFormatter subclass
         """
         format_name = self._form.get("format", "json").lower()
-        formatter_class = self._find_formatter_class(format_name)
+        formatter_class = self._get_formatter_class(format_name)
         # Options passed to _get_formatter() override those passed to
         # the KorpExporter constructor
         opts = {}
@@ -153,9 +153,60 @@ class KorpExporter(object):
         kwargs["options"] = opts
         return formatter_class(**kwargs)
 
+    def _get_formatter_class(self, format_names):
+        """Get or construct a formatter class for the specified format.
+
+        Arguments:
+            format_names: Either a list of format name strings or a
+                single string containing possibly several format names
+                separated by a comma, semicolon, plus or space
+
+        Returns:
+            class: The formatter class for `format_names`.
+
+        Raises:
+            KorpExportError: If no formatter found for one of
+                `format_names`
+
+        For a single format name, returns the class as returned by
+        method:`_find_formatter_class`. For multiple format names,
+        finds the classes for each format and constructs a new class
+        inheriting from each of them. The inheritance order is the
+        reverse of the format names, so that the first format name can
+        be considered as the main format which the subsequent formats
+        may modify. For example, the main format may be a logical
+        content format, for which the second format specifies a
+        concrete representation: for example, a token per line content
+        format represented as comma-separated values.
+        """
+        if isinstance(format_names, basestring):
+            format_names = re.split(r"[,;+\s]+", format_names)
+        if len(format_names) == 1:
+            return self._find_formatter_class(format_names[0])
+        else:
+            format_names.reverse()
+            base_classes = []
+            # Find the base classes for the formatter class to be
+            # constructed
+            for format_name in format_names:
+                base_classes.append(self._find_formatter_class(format_name))
+            classname = "_" + "_".join(cls.__name__ for cls in base_classes)
+            # First construct the class object (without methods), so
+            # that we can refer to it in super() in the __init__()
+            # method
+            formatter_class = type(classname, tuple(base_classes), {})
+
+            # Then define the function to be added as an __init__ method
+            def __init__(self, **kwargs):
+                super(formatter_class, self).__init__(**kwargs)
+
+            # And finally add it to the formatter class as __init__
+            setattr(formatter_class, "__init__", __init__)
+            return formatter_class
+
     def _find_formatter_class(self, format_name):
         """Find a formatter class for the specified format.
-        
+
         Arguments:
             format_name: The name of the format for which to find a
                 formatter class

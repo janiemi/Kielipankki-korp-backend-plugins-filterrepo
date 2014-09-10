@@ -3,8 +3,10 @@
 """
 Format Korp query results in various delimited-fields formats.
 
-This module contains Korp result formatters for CSV and TSV, both
-sentence per line and token per line.
+This module contains Korp result formatters for logical content in
+both sentence per line and token per line, and for concrete
+representation as CSV (comma-separated values) and TSV (tab-separated
+values).
 
 :Author: Jyrki Niemi <jyrki.niemi@helsinki.fi> for FIN-CLARIN
 :Date: 2014
@@ -17,10 +19,10 @@ import korpexport.queryresult as qr
 from korpexport.formatter import KorpExportFormatter
 
 
-__all__ = ['KorpExportFormatterSentencesCSV',
-           'KorpExportFormatterSentecesTSV',
-           'KorpExportFormatterTokensCSV',
-           'KorpExportFormatterTokensTSV']
+__all__ = ['KorpExportFormatterDelimitedSentence',
+           'KorpExportFormatterDelimitedToken',
+           'KorpExportFormatterCSV',
+           'KorpExportFormatterTSV']
 
 
 class KorpExportFormatterDelimited(KorpExportFormatter):
@@ -90,13 +92,15 @@ class KorpExportFormatterDelimitedSentence(KorpExportFormatterDelimited):
     """
     Format Korp results in a delimited-fields format, sentence per line.
 
-    A base class of actual formatters for delimited-fields formats
+    A logical content formatter class for delimited-fields formats
     with a sentence per line. The sentence fields contain corpus name,
     match position, the match and contexts and structural attributes.
     
     This class does not specify the concrete delimiters; they need to
     be specified in the subclass or in a mix-in class.
     """
+
+    formats = ["sentence_line", "sentences", "fields_sentence"]
 
     _option_defaults = {
         "content_format": u"{sentence_field_headings}{sentences}\n\n{info}",
@@ -116,7 +120,7 @@ class KorpExportFormatterDelimitedToken(KorpExportFormatterDelimited):
     r"""
     Format Korp results in a delimited-fields format, token per line.
 
-    A base class of actual formatters for delimited-fields formats
+    A logical content formatter class for delimited-fields formats
     with a token per line. The token fields contain the word and its
     attributes and a possible match marker.
 
@@ -128,6 +132,8 @@ class KorpExportFormatterDelimitedToken(KorpExportFormatterDelimited):
             empty, no match marker field; if 0, as the first field;
             otherwise as the last field
     """
+
+    formats = ["token_line", "tokens", "fields_token"]
 
     _option_defaults = {
         "content_format": u"{info}{token_field_headings}{sentences}",
@@ -171,7 +177,7 @@ class KorpExportFormatterCSV(KorpExportFormatterDelimited):
     r"""
     Format Korp results in a comma-separated values format.
 
-    A base class of actual formatters for comma-separated values
+    A mix-in class of actual formatters for comma-separated values
     formats. The result contains commas as field separators, and all
     fields are enclosed in double quotes, with internal double quotes
     doubled. The result uses \r\n as newlines, as it is specified in
@@ -182,6 +188,7 @@ class KorpExportFormatterCSV(KorpExportFormatterDelimited):
 
     mime_type = "text/csv"
     filename_extension = ".csv"
+    formats = ["csv"]
 
     _option_defaults = {
         "newline": "\r\n",
@@ -199,7 +206,7 @@ class KorpExportFormatterTSV(KorpExportFormatterDelimited):
     """
     Format Korp results in a tab-separated values format.
 
-    A base class for actual formatters for tab-separated values
+    A mix-in class for actual formatters for tab-separated values
     formats. The result contains tabs as field separators and no
     quotes around fied values.
 
@@ -208,6 +215,7 @@ class KorpExportFormatterTSV(KorpExportFormatterDelimited):
 
     mime_type = "text/tsv"
     filename_extension = ".tsv"
+    formats = ["tsv"]
 
     _option_defaults = {
         "delimiter": u"\t",
@@ -217,63 +225,3 @@ class KorpExportFormatterTSV(KorpExportFormatterDelimited):
 
     def __init__(self, **kwargs):
         super(KorpExportFormatterTSV, self).__init__(**kwargs)
-
-
-class KorpExportFormatterSentencesCSV(KorpExportFormatterCSV,
-                                      KorpExportFormatterDelimitedSentence):
-
-    r"""
-    Format Korp results in comma-separated values format, sentence per line.
-
-    Handle the format type ``sentences_csv`` alias ``csv``.
-    """
-
-    formats = ["sentences_csv", "csv"]
-
-    def __init__(self, **kwargs):
-        super(KorpExportFormatterSentencesCSV, self).__init__(**kwargs)
-
-
-class KorpExportFormatterSentencesTSV(KorpExportFormatterTSV,
-                                      KorpExportFormatterDelimitedSentence):
-
-    r"""
-    Format Korp results in tab-separated values format, sentence per line.
-
-    Handle the format type ``sentences_tsv`` alias ``tsv``.
-    """
-
-    formats = ["sentences_tsv", "tsv"]
-
-    def __init__(self, **kwargs):
-        super(KorpExportFormatterSentencesTSV, self).__init__(**kwargs)
-
-
-class KorpExportFormatterTokensCSV(KorpExportFormatterCSV,
-                                   KorpExportFormatterDelimitedToken):
-
-    r"""
-    Format Korp results in comma-separated values format, token per line.
-
-    Handle the format type ``tokens_csv`` alias ``csvp``.
-    """
-
-    formats = ["tokens_csv", "csv_token", "csvp"]
-
-    def __init__(self, **kwargs):
-        super(KorpExportFormatterTokensCSV, self).__init__(**kwargs)
-
-
-class KorpExportFormatterTokensTSV(KorpExportFormatterTSV,
-                                   KorpExportFormatterDelimitedToken):
-
-    r"""
-    Format Korp results in tab-separated values format, token per line.
-
-    Handle the format type ``tokens_tsv``.
-    """
-
-    formats = ["tokens_tsv"]
-
-    def __init__(self, **kwargs):
-        super(KorpExportFormatterTokensTSV, self).__init__(**kwargs)

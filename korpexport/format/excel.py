@@ -17,8 +17,7 @@ import xlwt
 import korpexport.format.delimited as delimited
 
 
-__all__ = ['KorpExportFormatterTokensExcel',
-           'KorpExportFormatterSentencesExcel']
+__all__ = ['KorpExportFormatterExcel']
 
 
 class KorpExportFormatterExcel(delimited.KorpExportFormatterDelimited):
@@ -26,8 +25,8 @@ class KorpExportFormatterExcel(delimited.KorpExportFormatterDelimited):
     """
     Format Korp query results as an Excel 97–2003 workbook (XLS).
 
-    A base class of actual formatters for XLS formats. The class does
-    not specify the content of the fields. It assumess that the
+    A mix-in class of actual formatters for XLS formats. The class
+    does not specify the content of the fields. It assumess that the
     formatted result contains rows separated by newlines and columns
     separated by tabs (before postprocessing). The class overrides
     `_postprocess` to produce the XLS file. The class can be combined
@@ -38,6 +37,7 @@ class KorpExportFormatterExcel(delimited.KorpExportFormatterDelimited):
     mime_type = "application/vnd.ms-excel"
     filename_extension = ".xls"
     download_charset = None
+    formats = ["xls", "excel"]
 
     def __init__(self, **kwargs):
         super(KorpExportFormatterExcel, self).__init__(**kwargs)
@@ -45,10 +45,10 @@ class KorpExportFormatterExcel(delimited.KorpExportFormatterDelimited):
     def _postprocess(self, text):
         """Return an XLS file content of `text`.
 
-        Assumes that `text` contains rows separated by newlines asn
-        columns separatedy by tabs.
+        Assumes that `text` contains rows separated by newlines and
+        columns separated by tabs.
         """
-        # CHECK: Does the encoding parameter work?
+        # CHECK: Does the encoding parameter have an effect?
         workbook = xlwt.Workbook(encoding="utf-8")
         worksheet = workbook.add_sheet(self._opts.get("title", ""))
         for rownum, row in enumerate(text.split("\n")):
@@ -58,37 +58,3 @@ class KorpExportFormatterExcel(delimited.KorpExportFormatterDelimited):
         output = strio.StringIO()
         workbook.save(output)
         return output.getvalue()
-
-
-class KorpExportFormatterSentencesExcel(
-    delimited.KorpExportFormatterDelimitedSentence,
-    KorpExportFormatterExcel):
-
-    """
-    Format Korp query results as an Excel workbook, sentence per row.
-
-    Handle the format type ``sentences_excel`` alias
-    ``sentences_xls``.
-    """
-
-    formats = ["sentences_excel", "sentences_xls"]
-
-    def __init__(self, **kwargs):
-        super(KorpExportFormatterSentencesExcel, self).__init__(**kwargs)
-
-
-class KorpExportFormatterTokensExcel(
-    delimited.KorpExportFormatterDelimitedToken,
-    KorpExportFormatterExcel):
-
-    """
-    Format Korp query results as an Excel workbook, token per row.
-
-    Handle the format type ``tokens_excel`` alias ``tokens_xls``,
-    ``excel``, ``xls``.
-    """
-
-    formats = ["tokens_excel", "tokens_xls", "excel", "xls"]
-
-    def __init__(self, **kwargs):
-        super(KorpExportFormatterTokensExcel, self).__init__(**kwargs)
