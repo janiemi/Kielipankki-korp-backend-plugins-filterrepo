@@ -21,6 +21,7 @@ from korpexport.formatter import KorpExportFormatter
 
 __all__ = ['KorpExportFormatterDelimitedSentence',
            'KorpExportFormatterDelimitedToken',
+           'KorpExportFormatterDelimitedReference',
            'KorpExportFormatterCSV',
            'KorpExportFormatterTSV']
 
@@ -170,6 +171,45 @@ class KorpExportFormatterDelimitedToken(KorpExportFormatterDelimited):
                 self._opts["token_fields"][0:0] = ["match_mark"]
             else:
                 self._opts["token_fields"].append("match_mark")
+
+
+class KorpExportFormatterDelimitedReference(KorpExportFormatterDelimited):
+
+    r"""
+    Format Korp results as a delimited-fields bibliographical reference.
+
+    A logical content formatter class for delimited-fields formats
+    with information relevant to bibliographical references. The
+    output contains two columns: headings and values. The sentence is
+    on its own line with the match marked, and the following lines
+    contain corpus information and the structural attributes for the
+    sentence. Sentences are separated by blank lines.
+
+    This class does not specify the concrete delimiters; they need to
+    be specified in a subclass or in a mix-in class.
+    """
+
+    formats = ["reference", "biblio", "bibref"]
+
+    _option_defaults = {
+        "content_format": u"{info}\n{sentences}",
+        "title_format": u"## {title}\n",
+        "infoitem_format": u"## {label}{sp_or_nl}{value}",
+        "infoitem_spacechar": "\t",
+        "param_format": u"##   {label}\t{value}",
+        "sentence_format": (u"sentence\t{left_context} {match_open} {match}"
+                            u" {match_close} {right_context}\n"
+                            u"corpus\t{corpus}\n{structs}\n"),
+        "sentence_sep": "\n",
+        "struct_format": u"{name}\t{value}",
+        "struct_sep": "\n",
+        "token_format": u"{word}",
+        "match_open": u"<<<",
+        "match_close": u">>>",
+        }
+
+    def __init__(self, **kwargs):
+        super(KorpExportFormatterDelimitedReference, self).__init__(**kwargs)
 
 
 class KorpExportFormatterCSV(KorpExportFormatterDelimited):
