@@ -529,14 +529,16 @@ class KorpExportFormatter(object):
 
         Format keys in *item_type*``_format``: ``key``, ``value``,
         ``label``, ``sp_or_nl`` (a newline if `value` contains
-        newlines, otherwise a space).
+        newlines, otherwise what is specified in
+        *item_type*``_spacechar`` or a space).
         """
+        space = self._opts.get(item_type + "_spacechar", " ")
         return self._format_item(
             item_type,
             key=key,
             label=self._opts[item_type + "_labels"].get(key, key),
             value=value,
-            sp_or_nl="\n" if "\n" in unicode(value) else " ",
+            sp_or_nl="\n" if "\n" in unicode(value) else space,
             **format_args)
 
     def _format_field_headings(self, item_type, **kwargs):
