@@ -134,7 +134,7 @@ class KorpExportFormatterDelimitedToken(KorpExportFormatterDelimited):
             otherwise as the last field
     """
 
-    formats = ["token_line", "tokens", "fields_token"]
+    formats = ["token_line", "tokens", "fields_token", "annotations", "annot"]
 
     _option_defaults = {
         "content_format": u"{info}{token_field_headings}{sentences}",
@@ -189,7 +189,7 @@ class KorpExportFormatterDelimitedReference(KorpExportFormatterDelimited):
     be specified in a subclass or in a mix-in class.
     """
 
-    formats = ["reference", "biblio", "bibref"]
+    formats = ["reference", "biblio", "bibref", "ref"]
 
     _option_defaults = {
         "content_format": u"{info}\n{sentences}",
