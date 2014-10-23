@@ -22,6 +22,7 @@ import re
 import logging
 
 from subprocess import Popen, PIPE
+from collections import defaultdict
 
 import korpexport.queryresult as qr
 
@@ -75,7 +76,7 @@ class KorpExporter(object):
     """Default filename format"""
 
     def __init__(self, form, options=None, filename_format=None,
-                 filename_encoding="utf-8"):
+                 filename_encoding="utf-8", **kwargs):
         """Construct a KorpExporter.
 
         Arguments:
@@ -118,6 +119,7 @@ class KorpExporter(object):
             self._form = kwargs["form"]
         self._formatter = self._formatter or self._get_formatter(**kwargs)
         self.process_query(korp_server_url)
+        self._add_corpus_info(korp_server_url, self._query_result)
         if "ERROR" in self._query_result:
             return self._query_result
         logging.debug('formatter: %s', self._formatter)
@@ -286,15 +288,25 @@ class KorpExporter(object):
         self._opts = self._extract_options(korp_server_url)
         logging.debug("opts: %s", self._opts)
 
-    def _query_korp_server(self, url_or_progname):
+    def _query_korp_server(self, url_or_progname, query_params=None):
         """Query a Korp server, either via HTTP or as a subprocess.
 
-        If url_or_progname begins with "http", make a query via HTTP.
-        Otherwise assume it as program name and call it directly as a
-        subprocess but make it believe that it is run via CGI. The
-        latter approach passes the environment variable values of this
-        script to the Korp server, so it gets e.g. the Sibboleth
-        authentication informatin. (Could the authentication
+        Arguments:
+            url_or_progname (str): Korp server URL or program name
+            query_params (dict): The query parameters to pass to the
+                Korp server; if not specified or `None`, use
+                self._query_params
+
+        Returns:
+            str: The value returned by the Korp server, most probably
+                an object encoded in JSON
+
+        If `url_or_progname` begins with "http", make a query via
+        HTTP. Otherwise assume it as program name and call it directly
+        as a subprocess but make it believe that it is run via CGI.
+        The latter approach passes the environment variable values of
+        this script to the Korp server, so it gets e.g. the Sibboleth
+        authentication information. (Could the authentication
         information be passed when using HTTP by adding appropriate
         request headers?)
         """
@@ -309,12 +321,14 @@ class KorpExporter(object):
             return (ref_name_dst[:-ref_name_suffix_len]
                     + name_src[-name_suffix_len:])
 
+        if query_params is None:
+            query_params = self._query_params
         # Encode the query parameters in UTF-8 for Korp server
         logging.debug("Korp server: %s", url_or_progname)
-        logging.debug("Korp query params: %s", self._query_params)
+        logging.debug("Korp query params: %s", query_params)
         query_params_encoded = urllib.urlencode(
             dict((key, val.encode("utf-8"))
-                 for key, val in self._query_params.iteritems()))
+                 for key, val in query_params.iteritems()))
         logging.debug("Encoded query params: %s", query_params_encoded)
         logging.debug("Env: %s", os.environ)
         if url_or_progname.startswith("http"):
@@ -411,6 +425,120 @@ class KorpExporter(object):
         opts["korp_server_url"] = (korp_server_url
                                    or self._form.get("korp_server_url", ""))
         return opts
+
+    def _add_corpus_info(self, korp_server_url, query_result):
+        """Add information on the corpora to the query result.
+
+        Retrieve info for each corpus in `query_result` from the form
+        or from the Korp server `korp_server_url` and add the
+        information as ``corpus_info`` to each hit in `query_result`.
+        Also add ``corpus_config`` to each hit if available.
+        """
+        self._retrieve_corpus_info(korp_server_url)
+        for query_hit in query_result["kwic"]:
+            corpname = query_hit["corpus"].partition("|")[0].lower()
+            query_hit["corpus_info"] = self._corpus_info.get(corpname)
+            if self._corpus_config:
+                query_hit["corpus_config"] = self._corpus_config[corpname]
+
+    def _retrieve_corpus_info(self, korp_server_url):
+        """Retrieve corpus info from the form or from a Korp server.
+
+        Retrieve corpus information and configuration first from
+        `self._form` and then (for the corpus info only) from the Korp
+        server `korp_server_url` (overriding the values on the form),
+        and fill `self._corpus_info` and `self._corpus_config` with
+        them, corpus names as keys.
+
+        For the corpus information on the form, the form parameter
+        ``corpus_info`` is preferred; if not available, use values in
+        ``corpus_config``. These parameters need to be encoded in
+        JSON.
+        """
+        self._corpus_info = defaultdict(dict)
+        self._corpus_config = {}
+        if "corpus_info" in self._form:
+            self._corpus_info = json.loads(self._form["corpus_info"])
+        elif "corpus_config" in self._form:
+            self._corpus_config = json.loads(self._form["corpus_config"])
+            self._corpus_info = dict(
+                [(corpname.lower(), config.get("info"))
+                 for corpname, config in self._corpus_config.iteritems()])
+            self._add_corpus_info_from_config()
+        self._retrieve_corpus_info_from_server(korp_server_url)
+
+    def _add_corpus_info_from_config(self):
+        """Add corpus info items from corpus configuration information.
+
+        Fill in `self._corpus_info` based on the values in
+        `self._corpus_config` whose keys are specified by the form
+        parameter ``corpus_config_info_keys`` or end in ``urn`` or
+        ``url``. ``corpus_config_info_keys`` should be a string of
+        comma-separated values.
+        """
+        config_info_items = (
+            self._form["corpus_config_info_keys"].split(",")
+            if "corpus_config_info_keys" in self._form
+            else [])
+        for corpname, config in self._corpus_config.iteritems():
+            corpname = corpname.lower()
+            for confkey, confval in config.iteritems():
+                confkey = confkey.lower()
+                if (confkey in ["urn", "url"] or confkey.endswith("_urn")
+                    or confkey.endswith("_url")):
+                    self._add_corpus_info_item(corpname, confkey, confval)
+                elif confkey in config_info_items:
+                    for subkey, subval in confval.iteritems():
+                        self._add_corpus_info_item(
+                            corpname, confkey + "_" + subkey, subval)
+
+    def _add_corpus_info_item(self, corpname, infoname, infovalue):
+        """Add a corpus info item to `self._corpus_info`.
+
+        Add to `self._corpus_info` for corpus `corpname` the
+        information item `infoname` with value `infovalue`. If
+        `infoname` contains an underscore, split the name at it and
+        use the first part as the name of a substructure (`dict`)
+        containing the second part as a key. `infoname` is lowercased.
+        """
+        infoname = infoname.lower()
+        subinfoname = None
+        if "_" in infoname:
+            infoname, _, subinfoname = infoname.partition("_")
+        if infoname not in self._corpus_info[corpname]:
+            self._corpus_info[corpname][infoname] = (
+                {} if subinfoname else infovalue)
+        if subinfoname:
+            self._corpus_info[corpname][infoname][subinfoname] = infovalue
+
+    def _retrieve_corpus_info_from_server(self, korp_server_url):
+        """Retrieve corpus info from the server `korp_server_url`.
+
+        Use the Korp server command `´info´´ to retrieve information
+        available in the backend for all the corpora in the query
+        results to be exported.
+        """
+        korp_info_params = {'command': 'info',
+                            'corpus': ','.join(self._get_corpus_names())}
+        korp_corpus_info_json = self._query_korp_server(korp_server_url,
+                                                        korp_info_params)
+        korp_corpus_info = json.loads(korp_corpus_info_json)
+        for corpname, corpdata in (korp_corpus_info.get("corpora", {})
+                                   .iteritems()):
+            corpname = corpname.lower()
+            corpinfo = corpdata.get("info", {})
+            for infoname, infoval in corpinfo.iteritems():
+                self._add_corpus_info_item(corpname, infoname, infoval)
+
+    def _get_corpus_names(self):
+        """Return the names (ids) of corpora present in the query results.
+
+        For parallel corpora, return all the names ids of all aligned
+        corpora.
+        """
+        return set([corpname
+                    for corpus_hit in self._query_result["kwic"]
+                    for corpname in corpus_hit["corpus"].split("|")])
 
     def _get_filename(self):
         """Return the filename for the result, from form or formatted.

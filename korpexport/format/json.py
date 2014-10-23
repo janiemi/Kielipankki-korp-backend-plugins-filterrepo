@@ -50,7 +50,7 @@ class KorpExportFormatterJSON(KorpExportFormatter):
 
     # TODO: Add meta information (as an item in the JSON).
 
-    def _format_content(self):
+    def _format_content(self, **kwargs):
         """Convert Korp query result directly to JSON."""
         return (json.dumps(qr.get_sentences(self._query_result),
                            sort_keys=self.get_option_bool("sort_keys"),

@@ -50,7 +50,8 @@ class KorpExportFormatterDelimited(KorpExportFormatter):
         "title_format": u"## {title}\n",
         "param_format": u"##   {label}: {value}",
         "param_sep": "\n",
-        "sentence_fields": ("corpus,match_pos,left_context,match,"
+        "sentence_fields": ("corpus,urn,metadata_link,licence_name,"
+                            "licence_link,match_pos,left_context,match,"
                             "right_context,?aligned,*structs"),
         "delimiter": "\t",
         "quote": "",
@@ -107,7 +108,8 @@ class KorpExportFormatterDelimitedSentence(KorpExportFormatterDelimited):
         "content_format": u"{sentence_field_headings}{sentences}\n\n{info}",
         "sentence_format": u"{fields}",
         "sentence_sep": "\n",
-        "sentence_fields": ("corpus,match_pos,left_context,match,"
+        "sentence_fields": ("corpus,urn,metadata_link,licence_name,"
+                            "licence_link,match_pos,left_context,match,"
                             "right_context,?aligned,*structs"),
         "sentence_field_sep": "\t",
         }
@@ -141,7 +143,8 @@ class KorpExportFormatterDelimitedToken(KorpExportFormatterDelimited):
         "infoitems_format": u"{title}\n{infoitems}\n\n",
         "field_headings_format": u"{field_headings}\n\n",
         "sentence_format": u"{info}{fields}",
-        "sentence_info_format": (u"# {corpus}:"
+        "sentence_info_format": (u"# {corpus}"
+                                 u" ({corpus_info}):"
                                  u" sentence {sentence_id},"
                                  u" position {match_pos};"
                                  u" text attributes: {structs}\n"),
@@ -150,6 +153,9 @@ class KorpExportFormatterDelimitedToken(KorpExportFormatterDelimited):
         "sentence_field_sep": "",
         # Skip empty fields or fields containing only spaces
         "sentence_field_skip": r"\s*",
+        "corpus_info_format": (u"URN {urn};"
+                               u" licence {licence_name}: {licence_link};"
+                               u" metadata {metadata_link}"),
         "token_format": u"{fields}\n",
         "token_noattrs_format": u"{fields}\n",
         "token_sep": "",
@@ -199,8 +205,12 @@ class KorpExportFormatterDelimitedReference(KorpExportFormatterDelimited):
         "param_format": u"##   {label}\t{value}",
         "sentence_format": (u"sentence\t{left_context} {match_open} {match}"
                             u" {match_close} {right_context}\n"
-                            u"corpus\t{corpus}\n{structs}\n"),
+                            u"{corpus_info}\n{structs}\n"),
         "sentence_sep": "\n",
+        "corpus_info_fields": (
+            "corpus_name,urn,licence_name,licence_link,metadata_link"),
+        "corpus_info_field_format": u"{label}\t{value}\t{key}",
+        "corpus_info_field_sep": "\n",
         "struct_format": u"{name}\t{value}",
         "struct_sep": "\n",
         "token_format": u"{word}",

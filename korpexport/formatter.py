@@ -148,7 +148,17 @@ class KorpExportFormatter(object):
         sentence_field_format: Format string for a single sentence
             field
         sentence_field_sep: Separator of individual formatted sentence
-            fields 
+            fields
+        corpus_info_format: Format string for corpus info associated
+            with each sentence
+        corpus_info_fields (list[str] | str): Names of the corpus info
+            fields to be shown
+        corpus_info_field_labels (dict[str->str]): Mapping from corpus
+            info field names to more human-readable labels
+        corpus_info_field_format: Format string for a single corpus
+            info field
+        corpus_info_field_sep: Separator of individual formatted
+            corpus info fields
         aligned_format: Format string for an aligned sentence
         aligned_sep: Separator of formatted aligned sentences
         struct_format: Format string for a structural attribute
@@ -210,6 +220,7 @@ class KorpExportFormatter(object):
             "infoitems",
             "params",
             "sentence_fields",
+            "corpus_info_fields",
             "token_fields"
             ],
         "newline": "\n",
@@ -240,7 +251,7 @@ class KorpExportFormatter(object):
             "defaultwithin": "within",
             "sort": "sorting"
             },
-        "param_format": u"{label}: {value}", 
+        "param_format": u"{label}: {value}",
         "param_sep": "; ",
         "field_headings_format": u"{field_headings}\n",
         "sentence_format": (u"{info}: {left_context}"
@@ -253,10 +264,26 @@ class KorpExportFormatter(object):
             "match_pos": "match position",
             "left_context": "left context",
             "right_context": "right context",
-            "aligned": "aligned text"
+            "aligned": "aligned text",
+            "corpus_info": "corpus info",
+            "urn": "URN",
+            "licence_name": "licence",
+            "licence_link": "licence link",
+            "metadata_link": "metadata link",
             },
         "sentence_field_format": u"{value}",
         "sentence_field_sep": "",
+        "corpus_info_format": u"{fields}",
+        "corpus_info_fields": "",
+        "corpus_info_field_labels": {
+            "corpus_name": "corpus",
+            "urn": "URN",
+            "licence_name": "licence",
+            "licence_link": "licence link",
+            "metadata_link": "metadata link",
+            },
+        "corpus_info_field_format": u"{value}",
+        "corpus_info_field_sep": "",
         "aligned_format": u"{sentence}",
         "aligned_sep": u" | ",
         "struct_format": u"{name}: {value}",
@@ -293,8 +320,9 @@ class KorpExportFormatter(object):
         Construct a formatter instance for format `kwargs["format"]`.
         The options `kwargs["options"]` override the values in the
         class attribute `_option_defaults` for the instance attribute
-        `_opts`. Other keyword arguments `kwargs` are currently
-        ignored.
+        `_opts`. `kwargs["urn_resolver"]` contains the URN resolver to
+        be prefixed to URNs to make them URLs. Other keyword arguments
+        `kwargs` are currently ignored.
 
         Subclass constructors should call this constructor to ensure
         that all the relevant instance attributes are defined.
@@ -303,6 +331,7 @@ class KorpExportFormatter(object):
         self._opts = {}
         self._opts.update(self._get_combined_option_defaults())
         self._opts.update(kwargs.get("options", {}))
+        self._urn_resolver = kwargs.get("urn_resolver", "")
         self._query_params = {}
         self._query_result = {}
 
@@ -468,6 +497,31 @@ class KorpExportFormatter(object):
         return dict([(key, self._format_struct((key, val), **kwargs))
                      for (key, val)
                      in self._get_sentence_structs(sentence, all_structs=True)])
+
+    def _get_corpus_info(self, sentence):
+        """Get information on the corpus from which a sentence originates.
+
+        Return a `dict` containing the following corpus info items for
+        `sentence` (each item may be empty):
+
+        ``corpus_name``: name of the corpus
+        ``urn``: corpus URN (without resolver prefix)
+        ``link``: corpus link (URN with resolver prefix or URL)
+        ``licence_name``: corpus licence name
+        ``licence_link``: link to licence (URN with resolver prefix or URL)
+        ``metadata_link``: link to metadata (URN with resolver prefix or URL)
+        """
+        return dict(
+            corpus_name=qr.get_sentence_corpus(sentence),
+            urn=qr.get_sentence_corpus_urn(sentence),
+            link=qr.get_sentence_corpus_link(
+                sentence, urn_resolver=self._urn_resolver),
+            licence_name=qr.get_sentence_corpus_info_item(
+                sentence, "licence", "name"),
+            licence_link=qr.get_sentence_corpus_link(
+                sentence, "licence", urn_resolver=self._urn_resolver),
+            metadata_link=qr.get_sentence_corpus_link(
+                sentence, "metadata", urn_resolver=self._urn_resolver))
 
     def _get_token_attrs(self, token, all_attrs=False):
         """Get the (positional) attributes of a token.
@@ -751,11 +805,16 @@ class KorpExportFormatter(object):
         ``info`` (formatted sentence information), ``fields``
         (formatted sentence fields as specified in the option
         ``sentence_fields``); names of structural attributes
-        (unformatted); those listed in :method:`_init_infoitems`.
+        (unformatted); ``corpus_info`` (formatted corpus info);
+        ``corpus_info_field`` (unformatted corpus info fields); those
+        listed in :method:`_init_infoitems`; those listed in
+        :method:`_get_corpus_info`.
         """
         struct = self._get_formatted_sentence_structs(sentence, **kwargs)
+        corpus = qr.get_sentence_corpus(sentence)
+        corpus_info = self._get_corpus_info(sentence)
         format_args = dict(
-            corpus=qr.get_sentence_corpus(sentence),
+            corpus=corpus,
             match_pos=qr.get_sentence_match_position(sentence),
             tokens=self._format_tokens(
                 qr.get_sentence_tokens_all(sentence), tokens_type="all",
@@ -774,11 +833,15 @@ class KorpExportFormatter(object):
             aligned=self._format_aligned_sentences(sentence),
             structs=self._format_structs(sentence),
             struct=struct,
+            corpus_info_field=corpus_info,
             arg=kwargs)
         # Allow direct format references to struct names (unformatted
         # values)
         format_args.update(dict(self._get_sentence_structs(sentence)))
         format_args.update(self._infoitems)
+        format_args.update(corpus_info)
+        format_args.update(
+            dict(corpus_info=self._format_corpus_info(**format_args)))
         format_args.update(dict(info=self._format_item("sentence_info",
                                                        **format_args)))
         return self._format_item(
@@ -802,6 +865,45 @@ class KorpExportFormatter(object):
             value = format_args.get("struct", {}).get(key, "")
         return self._format_label_list_item(
             "sentence_field", key, value, **format_args)
+
+    def _format_corpus_info(self, **kwargs):
+        """Format corpus information items.
+
+        Format keys in ``corpus_info_format``: ``fields`` (all info
+        items formatted); those listed in :method:`_get_corpus_info`.
+        """
+        return self._format_item(
+            "corpus_info",
+            fields=self._format_corpus_info_fields(**kwargs),
+            **kwargs)
+
+    def _format_corpus_info_fields(self, **kwargs):
+        """Format corpus information items as a list.
+
+        Format the information items listed in the option
+        ``corpus_info_fields`` as a list. Use
+        ``corpus_info_field_format`` to format the individual info
+        fields and ``corpus_info_field_sep`` to separate them.
+        """
+        return self._format_list(
+            "corpus_info_field",
+            self._opts.get("corpus_info_fields", []),
+            **kwargs)
+
+    def _format_corpus_info_field(self, key, **format_args):
+        """Format an individual corpus information field.
+
+        Format keys in ``corpus_info_field_format``: those listed in
+        :method:`_format_label_list_item`. ``value`` is the value of
+        `key` in `format_args`, containing the format keys for
+        ``corpus_info_format``, if exists; otherwise the value of
+        ``corpus_info_field[key]``.
+        """
+        value = format_args.get(key, "")
+        if value is None:
+            value = format_args.get("corpus_info_field", {}).get(key, "")
+        return self._format_label_list_item(
+            "corpus_info_field", key, value, **format_args)
 
     def _format_aligned_sentences(self, sentence, **kwargs):
         """Format the aligned sentences of `sentence`.
@@ -864,7 +966,7 @@ class KorpExportFormatter(object):
 
     def _format_token(self, token, **kwargs):
         """Format a single token `token`, possibly with attributes.
-        
+
         Format a single token using the format ``token_format``, or
         ``token_noattrs_format`` if no (positional) token attributes
         have been specified in option ``attrs``, `structured_format`

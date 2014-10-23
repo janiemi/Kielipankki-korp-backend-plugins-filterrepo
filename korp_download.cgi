@@ -78,6 +78,11 @@ LOG_FILE = "/v/korp/log/korp-cgi.log"
 # logging.CRITICAL to disable logging
 LOG_LEVEL = logging.INFO
 
+# The default URL for a URN resolver, to be prefixed to URN links in
+# the exported content; may be overridden by the query parameter
+# "urn_resolver"
+URN_RESOLVER = "http://urn.fi/"
+
 
 def main():
     """The main CGI handler, modified from that of korp.cgi.
@@ -121,8 +126,9 @@ def main():
                  form.get("query_params"), form.get("query_result"),
                  form.get("headings"), form.get("structs"), form.get("attrs"))
     try:
-        result = ke.make_download_file(form, 
-                                       form.get("korp_server", KORP_SERVER))
+        result = ke.make_download_file(
+            form, form.get("korp_server", KORP_SERVER),
+            urn_resolver=form.get("urn_resolver", URN_RESOLVER))
     except Exception as e:
         import traceback
         exc = sys.exc_info()

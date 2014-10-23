@@ -80,6 +80,64 @@ def get_sentence_corpus(sentence):
     return sentence["corpus"]
 
 
+def get_sentence_corpus_urn(sentence):
+    """Get the corpus URN for `sentence`."""
+    return get_sentence_corpus_info_item(sentence, "urn")
+
+
+def get_sentence_corpus_info_item(sentence, item, subitem=None):
+    """Get a corpus info item value for `sentence`.
+
+    Arguments:
+        sentence (dict): The sentence for which to get corpus info
+        item (str): The (main) item name in `sentence["corpus_info"]`
+        subitem (str): The name of a subitem in `item` which is a
+            dict; if `None`, `item` is a string.
+
+    Returns:
+        str: The requested info item from `sentence["corpus_info"]` if
+            it exists; otherwise, the empty string
+    """
+    info = sentence["corpus_info"]
+    if item in info:
+        if subitem is not None:
+            if not isinstance(info[item], basestring) and subitem in info[item]:
+                return info[item][subitem]
+            else:
+                return ""
+        else:
+            return info[item]
+    else:
+        return ""
+
+
+def get_sentence_corpus_link(sentence, itemname=None, urn_resolver=""):
+    """Get the value of a corpus URN or URL info item for `sentence`.
+
+    Arguments:
+        sentence (dict): The sentence for which to get link info
+        itemname (str): The name (dict key in corpus info) of the main
+            object (a dict) from which to get ``urn`` or ``url``; if
+            `None`, get the unqualified ``urn`` or ``url``
+        urn_resolver (str): The string to prefix to a URN
+
+    Returns:
+        str: The URN (preferred) or URL in the `itemname` (or top
+            level) of the corpus info for `sentence`, URN prefixed
+            with `urn_resolver`
+    """
+    for linktype in ["urn", "url"]:
+        if itemname:
+            link = get_sentence_corpus_info_item(sentence, itemname, linktype)
+        else:
+            link = get_sentence_corpus_info_item(sentence, linktype)
+        if link:
+            if linktype == "urn" and urn_resolver:
+                link = urn_resolver + link
+            return link
+    return ""
+
+
 def get_sentence_tokens(sentence, start, end):
     """Get the tokens (list) of `sentence`, in the range [`start`:`end`]."""
     return sentence["tokens"][start:end]
