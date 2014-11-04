@@ -16,7 +16,6 @@ functions in this module.
 from __future__ import absolute_import
 
 
-
 def get_sentences(query_result):
     """Get the sentences  contained in `query_result`."""
     return query_result.get("kwic", [])
@@ -77,7 +76,7 @@ def get_occurring_attrnames(query_result, keys, struct_name):
 
 def get_sentence_corpus(sentence):
     """Get the corpus id (str) for `sentence`."""
-    return sentence["corpus"]
+    return sentence.get("corpus", "")
 
 
 def get_sentence_corpus_urn(sentence):
@@ -98,7 +97,7 @@ def get_sentence_corpus_info_item(sentence, item, subitem=None):
         str: The requested info item from `sentence["corpus_info"]` if
             it exists; otherwise, the empty string
     """
-    info = sentence["corpus_info"]
+    info = sentence.get("corpus_info") or {}
     if item in info:
         if subitem is not None:
             if not isinstance(info[item], basestring) and subitem in info[item]:
@@ -140,7 +139,10 @@ def get_sentence_corpus_link(sentence, itemname=None, urn_resolver=""):
 
 def get_sentence_tokens(sentence, start, end):
     """Get the tokens (list) of `sentence`, in the range [`start`:`end`]."""
-    return sentence["tokens"][start:end]
+    if (start >= 0 or start is None) and (end >= 0 or end is None):
+        return sentence["tokens"][start:end]
+    else:
+        return []
 
 
 def get_sentence_tokens_all(sentence):
@@ -148,25 +150,46 @@ def get_sentence_tokens_all(sentence):
     return get_sentence_tokens(sentence, None, None)
 
 
+def get_sentence_match(sentence):
+    """Get match information in `sentence`; empty dict if none."""
+    return sentence.get("match", {})
+
+
+def get_sentence_match_info(sentence, infoname):
+    """Get match information `infoname` in `sentence`; -1 if nonexistent."""
+    return get_sentence_match(sentence).get(infoname, -1)
+
+
 def get_sentence_tokens_match(sentence):
     """Get the tokens in `sentence` that are part of the query match."""
-    return get_sentence_tokens(sentence, sentence["match"]["start"],
-                               sentence["match"]["end"])
+    match = get_sentence_match(sentence)
+    if match:
+        return get_sentence_tokens(sentence, match.get("start"),
+                                   match.get("end"))
+    else:
+        return []
 
 
 def get_sentence_tokens_left_context(sentence):
-    """Get the tokens in `sentence` on the left of the query match."""
-    return get_sentence_tokens(sentence, None, sentence["match"]["start"])
+    """Get the tokens in `sentence` on the left of the query match.
+
+    If no match in `sentence`, return all tokens.
+    """
+    match_start = get_sentence_match_info(sentence, "start")
+    if match_start < 0:
+        match_start = None
+    return get_sentence_tokens(sentence, None, match_start)
 
 
 def get_sentence_tokens_right_context(sentence):
     """Get the tokens in `sentence` on the right of the query match."""
-    return get_sentence_tokens(sentence, sentence["match"]["end"], None)
+    return get_sentence_tokens(
+        sentence, get_sentence_match_info(sentence, "end"), None)
 
 
 def get_sentence_match_position(sentence):
     """Get the corpus position (token number) of the match in `sentence`."""
-    return sentence["match"]["position"]
+    return get_sentence_match_info(sentence, "position")
 
 
 def get_aligned_sentences(sentence):

@@ -120,12 +120,14 @@ class KorpExporter(object):
         self._formatter = self._formatter or self._get_formatter(**kwargs)
         self.process_query(korp_server_url)
         self._add_corpus_info(korp_server_url, self._query_result)
+        logging.debug('qr: %s', self._query_result)
         if "ERROR" in self._query_result:
             return self._query_result
         logging.debug('formatter: %s', self._formatter)
         result["download_charset"] = self._formatter.download_charset
         content = self._formatter.make_download_content(
             self._query_result, self._query_params, self._opts, **kwargs)
+        logging.debug('content: %s', content)
         if isinstance(content, unicode) and self._formatter.download_charset:
             content = content.encode(self._formatter.download_charset)
         result["download_content"] = content
@@ -393,12 +395,13 @@ class KorpExporter(object):
             """Set the show option opt_name based on query params and result.
             """
             if opt_name in self._form:
-                vals = self._form[opt_name].split(",")
+                vals = self._form.get(opt_name, "").split(",")
                 new_vals = []
                 for valnum, val in enumerate(vals):
                     if val in ["*", "+"]:
                         all_vals = (
-                            self._query_params[query_param_name].split(","))
+                            self._query_params.get(query_param_name, "")
+                            .split(","))
                         if val == "+":
                             add_vals = qr.get_occurring_attrnames(
                                 self._query_result, all_vals,
@@ -533,8 +536,8 @@ class KorpExporter(object):
     def _get_corpus_names(self):
         """Return the names (ids) of corpora present in the query results.
 
-        For parallel corpora, return all the names ids of all aligned
-        corpora.
+        For parallel corpora, return all the names (ids) of all
+        aligned corpora.
         """
         return set([corpname
                     for corpus_hit in self._query_result["kwic"]
@@ -567,8 +570,8 @@ class KorpExporter(object):
                     time=time.strftime("%H%M%S"),
                     ext=self._formatter.filename_extension,
                     cqpwords=self._make_cqp_filename_repr(),
-                    start=self._query_params["start"],
-                    end=self._query_params["end"]))
+                    start=self._query_params.get("start", ""),
+                    end=self._query_params.get("end", "")))
                 .encode(self._filename_encoding))
 
     def _make_cqp_filename_repr(self, attrs=False, keep_chars=None,
@@ -589,7 +592,7 @@ class KorpExporter(object):
         # TODO: If attrs is True, include attribute names. Could we
         # encode somehow the operator which could be != or contains?
         words = re.findall(r'\"((?:[^\\\"]|\\.)*?)\"',
-                           self._query_params["cqp"])
+                           self._query_params.get("cqp", ""))
         replace_chars_re = re.compile(
             r'[^\w' + re.escape(keep_chars or "") + ']+', re.UNICODE)
         return replace_char.join(replace_chars_re.sub(replace_char, word)
