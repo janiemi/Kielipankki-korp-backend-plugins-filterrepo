@@ -91,6 +91,14 @@ def main():
     Invokes :func:`korpexport.exporter.make_download_file` to generate
     downloadable content.
     """
+
+    def truncate(s, maxlen):
+        ellipsis = "[...]"
+        if len(s) <= maxlen:
+            return s
+        else:
+            return s[:maxlen - len(ellipsis) - 10] + ellipsis + s[-10:]
+
     starttime = time.time()
     # Open unbuffered stdout
     sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
@@ -99,8 +107,11 @@ def main():
     # not handle list values resulting form multiple occurrences of a
     # parameter.
     form_raw = cgi.FieldStorage(keep_blank_values=1)
-    form = dict((field, form_raw.getvalue(field).decode("utf-8"))
-                for field in form_raw.keys())
+    # Decode \r\n as \n, since a bare \n in parameters seems to get
+    # encoded as \r\n.
+    form = dict((field,
+                 form_raw.getvalue(field).decode("utf-8").replace('\r\n', '\n'))
+                 for field in form_raw.keys())
     # Configure logging
     loglevel = logging.DEBUG if "debug" in form else LOG_LEVEL
     logfile = form.get("logfile")
@@ -118,13 +129,10 @@ def main():
                         **logging_config_filearg)
     # Log remote IP address and CGI parameters
     logging.info('IP: %s', cgi.os.environ.get('REMOTE_ADDR'))
-    # Limit the length of query_result written to the log
-    logging.info("Params: {'format': '%s', 'filename': '%s', "
-                 "'query_params': '%s', 'query_result': '%.800s', "
-                 "'headings': '%s', 'structs': '%s', 'attrs': '%s'}",
-                 form.get("format"), form.get("filename"),
-                 form.get("query_params"), form.get("query_result"),
-                 form.get("headings"), form.get("structs"), form.get("attrs"))
+    # Limit the length of in particular query_result written to the log
+    logging.info("Params: %s",
+                 dict((key, truncate(form[key], 800))
+                      for key in sorted(key0 for key0 in form)))
     try:
         result = ke.make_download_file(
             form, form.get("korp_server", KORP_SERVER),
