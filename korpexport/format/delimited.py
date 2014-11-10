@@ -209,7 +209,7 @@ class KorpExportFormatterDelimitedReference(KorpExportFormatterDelimited):
         "sentence_sep": "\n",
         "corpus_info_fields": (
             "corpus_name,urn,licence_name,licence_link,metadata_link"),
-        "corpus_info_field_format": u"{label}\t{value}\t{key}",
+        "corpus_info_field_format": u"{label}\t{value}",
         "corpus_info_field_sep": "\n",
         "struct_format": u"{name}\t{value}",
         "struct_sep": "\n",
