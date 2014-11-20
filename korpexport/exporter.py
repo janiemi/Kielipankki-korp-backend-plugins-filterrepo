@@ -508,7 +508,7 @@ class KorpExporter(object):
         subinfoname = None
         if "_" in infoname:
             infoname, _, subinfoname = infoname.partition("_")
-        if infoname not in self._corpus_info[corpname]:
+        if infoname not in self._corpus_info.setdefault(corpname, {}):
             self._corpus_info[corpname][infoname] = (
                 {} if subinfoname else infovalue)
         if subinfoname:
