@@ -270,6 +270,8 @@ class KorpExportFormatter(object):
             "licence_name": "licence",
             "licence_link": "licence link",
             "metadata_link": "metadata link",
+            "hit_num": "hit number",
+            "sentence_num": "sentence number",
             },
         "sentence_field_format": u"{value}",
         "sentence_field_sep": "",
@@ -557,21 +559,30 @@ class KorpExportFormatter(object):
         Format list items using a formatting function (method)
         `format_fn`. If `format_fn` is not specified, use the method
         ``_format_``*item_type* in the class of `self`. `kwargs` is
-        passed to `format_fn`. Separate list items with the separator
-        specified by the option *item_type*``_sep``.
+        passed to `format_fn`, augmented with the value
+        *item_type*``_num``, whose value is the number of the item in
+        the list as a zero-based integer. Separate list items with the
+        separator specified by the option *item_type*``_sep``.
 
         Supports the option *item_type*``_skip``, which specifies a
         regular expression. If specified and if a formatted list item
         as a whole matches the regular expression, the list item is
         not included in the result.
         """
+
+        def updated(dict_, values):
+            dict_.update(values)
+            return dict_
+
         format_fn = format_fn or getattr(self, "_format_" + item_type)
         skip_re = self._opts.get(item_type + "_skip")
         if skip_re:
             skip_re = re.compile(r"^" + skip_re + r"$", re.UNICODE)
         return self._opts[item_type + "_sep"].join(
-            formatted_elem for elem in list_
-            for formatted_elem in [format_fn(elem, **kwargs)]
+            formatted_elem for elemnum, elem in enumerate(list_)
+            for formatted_elem in [
+                    format_fn(elem, **updated(kwargs, dict([(item_type + "_num",
+                                                             elemnum)])))]
             if not (skip_re and skip_re.match(formatted_elem)))
 
     def _format_label_list_item(self, item_type, key, value, **format_args):
@@ -801,6 +812,9 @@ class KorpExportFormatter(object):
         ``aligned`` (aligned sentences in a parallel corpus),
         ``structs`` (formatted structural attributes of the sentence),
         ``struct`` (a dict of the structural attributes, unformatted),
+        ``sentence_num`` (the number of the sentence in this list of
+        sentences, a zero-based integer), ``hit_num´´ (the (global)
+        number of the hit in the result, a zero-based integer),
         ``arg`` (a dict of additional keyword arguments passed),
         ``info`` (formatted sentence information), ``fields``
         (formatted sentence fields as specified in the option
@@ -822,6 +836,8 @@ class KorpExportFormatter(object):
             structs=self._format_structs(sentence),
             struct=struct,
             corpus_info_field=corpus_info,
+            hit_num=(int(self._infoitems["param"]["start"])
+                     + kwargs["sentence_num"]),
             arg=kwargs)
         tokens_type_info = [
             ("tokens", dict(tokens_type="all")),
@@ -835,6 +851,7 @@ class KorpExportFormatter(object):
             opts.update(kwargs)
             format_args[tokens_type] = self._format_tokens(
                 qr.get_sentence_tokens(sentence, opts["tokens_type"]), **opts)
+        format_args.update(kwargs)
         # Allow direct format references to struct names (unformatted
         # values)
         format_args.update(dict(self._get_sentence_structs(sentence)))
