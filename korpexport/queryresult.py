@@ -137,7 +137,7 @@ def get_sentence_corpus_link(sentence, itemname=None, urn_resolver=""):
     return ""
 
 
-def get_sentence_tokens(sentence, start, end):
+def get_sentence_tokens_base(sentence, start, end):
     """Get the tokens (list) of `sentence`, in the range [`start`:`end`]."""
     if (start >= 0 or start is None) and (end >= 0 or end is None):
         return sentence["tokens"][start:end]
@@ -147,7 +147,7 @@ def get_sentence_tokens(sentence, start, end):
 
 def get_sentence_tokens_all(sentence):
     """Get all tokens in `sentence`."""
-    return get_sentence_tokens(sentence, None, None)
+    return get_sentence_tokens_base(sentence, None, None)
 
 
 def get_sentence_match(sentence):
@@ -164,8 +164,8 @@ def get_sentence_tokens_match(sentence):
     """Get the tokens in `sentence` that are part of the query match."""
     match = get_sentence_match(sentence)
     if match:
-        return get_sentence_tokens(sentence, match.get("start"),
-                                   match.get("end"))
+        return get_sentence_tokens_base(sentence, match.get("start"),
+                                        match.get("end"))
     else:
         return []
 
@@ -178,13 +178,18 @@ def get_sentence_tokens_left_context(sentence):
     match_start = get_sentence_match_info(sentence, "start")
     if match_start < 0:
         match_start = None
-    return get_sentence_tokens(sentence, None, match_start)
+    return get_sentence_tokens_base(sentence, None, match_start)
 
 
 def get_sentence_tokens_right_context(sentence):
     """Get the tokens in `sentence` on the right of the query match."""
-    return get_sentence_tokens(
+    return get_sentence_tokens_base(
         sentence, get_sentence_match_info(sentence, "end"), None)
+
+
+def get_sentence_tokens(sentence, type_):
+    """Get the toknes in `sentence` of the kind specified by `type_`."""
+    return globals()["get_sentence_tokens_" + type_](sentence)
 
 
 def get_sentence_match_position(sentence):

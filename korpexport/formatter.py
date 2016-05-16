@@ -816,25 +816,25 @@ class KorpExportFormatter(object):
         format_args = dict(
             corpus=corpus,
             match_pos=qr.get_sentence_match_position(sentence),
-            tokens=self._format_tokens(
-                qr.get_sentence_tokens_all(sentence), tokens_type="all",
-                **kwargs),
-            match=self._format_tokens(
-                qr.get_sentence_tokens_match(sentence), tokens_type="match",
-                match_mark=self._opts.get("match_marker", ""), **kwargs),
             match_open=self._opts["match_open"],
             match_close=self._opts["match_close"],
-            left_context=self._format_tokens(
-                qr.get_sentence_tokens_left_context(sentence),
-                tokens_type="left_context", **kwargs),
-            right_context=self._format_tokens(
-                qr.get_sentence_tokens_right_context(sentence),
-                tokens_type="right_context", **kwargs),
             aligned=self._format_aligned_sentences(sentence),
             structs=self._format_structs(sentence),
             struct=struct,
             corpus_info_field=corpus_info,
             arg=kwargs)
+        tokens_type_info = [
+            ("tokens", dict(tokens_type="all")),
+            ("match", dict(match_mark=self._opts.get("match_marker", ""))),
+            ("left_context", {}),
+            ("right_context", {}),
+        ]
+        for tokens_type, opts in tokens_type_info:
+            if "tokens_type" not in opts:
+                opts["tokens_type"] = tokens_type
+            opts.update(kwargs)
+            format_args[tokens_type] = self._format_tokens(
+                qr.get_sentence_tokens(sentence, opts["tokens_type"]), **opts)
         # Allow direct format references to struct names (unformatted
         # values)
         format_args.update(dict(self._get_sentence_structs(sentence)))
