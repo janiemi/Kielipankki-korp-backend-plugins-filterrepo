@@ -149,6 +149,10 @@ class KorpExportFormatter(object):
             field
         sentence_field_sep: Separator of individual formatted sentence
             fields
+        sentence_token_attrs (list[str] | str): Names of token
+            attributes whose values can be listed as separate fields
+            in sentences; for example, a field listing all the lemmas
+            of a sentence
         corpus_info_format: Format string for corpus info associated
             with each sentence
         corpus_info_fields (list[str] | str): Names of the corpus info
@@ -167,8 +171,14 @@ class KorpExportFormatter(object):
         token_format: Format string for a single token
         token_noattrs_format: Format string for a single token without
             (token) attributes
+        token_attr_format: Format string for a token attribute
+            formatted separately from the word form, for example in a
+            sentence field listing all the lemmas
         token_sep: Separator of individual formatted tokens
         word_format: Format string for a word (word form)
+        attr_only_format: Format string for a token attribute
+           formatted separately from the word form; the result is used
+           in token_attr_format
         token_fields (list[str] | str): Names of the fields (word and
             attributes) of a token to be shown
         token_field_labels (dict[str->str]): Mapping from token field
@@ -220,6 +230,7 @@ class KorpExportFormatter(object):
             "infoitems",
             "params",
             "sentence_fields",
+            "sentence_token_attrs",
             "corpus_info_fields",
             "token_fields"
             ],
@@ -275,6 +286,7 @@ class KorpExportFormatter(object):
             },
         "sentence_field_format": u"{value}",
         "sentence_field_sep": "",
+        "sentence_token_attrs": "",
         "corpus_info_format": u"{fields}",
         "corpus_info_fields": "",
         "corpus_info_field_labels": {
@@ -292,8 +304,10 @@ class KorpExportFormatter(object):
         "struct_sep": u"; ",
         "token_format": u"{word}[{attrs}]",
         "token_noattrs_format": u"{word}",
+        "token_attr_format": u"{attr}",
         "token_sep": u" ",
         "word_format": u"{word}",
+        "attr_only_format": u"{value}",
         "token_fields": "word,*attrs",
         "token_field_labels": {
             "match_mark": "match"
@@ -334,6 +348,8 @@ class KorpExportFormatter(object):
         self._opts.update(self._get_combined_option_defaults())
         self._opts.update(kwargs.get("options", {}))
         self._urn_resolver = kwargs.get("urn_resolver", "")
+        self._sentence_token_attrs = []
+        self._sentence_token_attr_labels = {}
         self._query_params = {}
         self._query_result = {}
 
@@ -397,6 +413,7 @@ class KorpExportFormatter(object):
         self._query_params = query_params or {}
         self._opts.update(options or {})
         self._adjust_opts()
+        self._init_sentence_token_attrs()
         self._init_infoitems()
         return self._convert_newlines(
             self._postprocess(self._format_content(**kwargs)))
@@ -434,6 +451,28 @@ class KorpExportFormatter(object):
                 for item in self._opts[optkey]:
                     adjusted_list.extend(adjust_item(item))
                 self._opts[optkey] = adjusted_list
+
+    def _init_sentence_token_attrs(self):
+        """Initialize _sentence_token_attrs and _sentence_token_attr_labels.
+
+        _sentence_token_attr_labels contains the labels that can be
+        used for the sentence fields corresponding to the attributes
+        listed in _sentence_token_attrs. The sentence field names
+        contain the attribute name pluralized (ending in -s, or -es,
+        if the field name ends in -s, -z, -sh or -ch).
+        """
+        self._sentence_token_attrs = self._opts.get("sentence_token_attrs", [])
+        labels = self._opts["sentence_field_labels"]
+        for attrname in self._sentence_token_attrs:
+            label_base = attrname
+            if re.search(r"([sz]|[cs]h)$", attrname):
+                label_base += "e"
+            label_base += "s"
+            self._sentence_token_attr_labels[attrname] = label_base
+            labels[label_base + "_all"] = label_base
+            for tokens_type in ["match", "left_context", "right_context"]:
+                labels[label_base + "_" + tokens_type] = (
+                    labels.get(tokens_type, tokens_type) + " " + label_base)
 
     def _init_infoitems(self):
         """Initialize query result info items used in several format methods.
@@ -809,14 +848,18 @@ class KorpExportFormatter(object):
         sentence), ``match`` (the tokens that are part of the match),
         ``left_context`` (the tokens that precede the match),
         ``right_context`` (the tokens that follow the match),
-        ``aligned`` (aligned sentences in a parallel corpus),
-        ``structs`` (formatted structural attributes of the sentence),
-        ``struct`` (a dict of the structural attributes, unformatted),
-        ``sentence_num`` (the number of the sentence in this list of
-        sentences, a zero-based integer), ``hit_num´´ (the (global)
-        number of the hit in the result, a zero-based integer),
-        ``arg`` (a dict of additional keyword arguments passed),
-        ``info`` (formatted sentence information), ``fields``
+        *attrs*´´_´´*type* where *attrs* is an attribute listed in
+        ``sentence_token_attrs`` (pluralized) and *type* one of
+        ``all``, ``match``, ``left_context``, ``right_context`` (list
+        of values of all the attributes *attr* in tokens of *type* in
+        the sentence), ``aligned`` (aligned sentences in a parallel
+        corpus), ``structs`` (formatted structural attributes of the
+        sentence), ``struct`` (a dict of the structural attributes,
+        unformatted), ``sentence_num`` (the number of the sentence in
+        this list of sentences, a zero-based integer), ``hit_num´´
+        (the (global) number of the hit in the result, a zero-based
+        integer), ``arg`` (a dict of additional keyword arguments
+        passed), ``info`` (formatted sentence information), ``fields``
         (formatted sentence fields as specified in the option
         ``sentence_fields``); names of structural attributes
         (unformatted); ``corpus_info`` (formatted corpus info);
@@ -824,6 +867,7 @@ class KorpExportFormatter(object):
         listed in :method:`_init_infoitems`; those listed in
         :method:`_get_corpus_info`.
         """
+
         struct = self._get_formatted_sentence_structs(sentence, **kwargs)
         corpus = qr.get_sentence_corpus(sentence)
         corpus_info = self._get_corpus_info(sentence)
@@ -849,8 +893,13 @@ class KorpExportFormatter(object):
             if "tokens_type" not in opts:
                 opts["tokens_type"] = tokens_type
             opts.update(kwargs)
-            format_args[tokens_type] = self._format_tokens(
-                qr.get_sentence_tokens(sentence, opts["tokens_type"]), **opts)
+            tokens = qr.get_sentence_tokens(sentence, opts["tokens_type"])
+            format_args[tokens_type] = self._format_tokens(tokens, **opts)
+            for attrname in self._sentence_token_attrs:
+                tokens_type2 = tokens_type if tokens_type != "tokens" else "all"
+                format_args[self._sentence_token_attr_labels[attrname] + "_"
+                            + tokens_type2] = self._format_tokens(
+                                tokens, attr_only=attrname, **opts)
         format_args.update(kwargs)
         # Allow direct format references to struct names (unformatted
         # values)
@@ -988,37 +1037,51 @@ class KorpExportFormatter(object):
         ``token_noattrs_format`` if no (positional) token attributes
         have been specified in option ``attrs``, `structured_format`
         is `False` and the option ``token_fields`` contains at most
-        one item.
+        one item, or ``attr_only_format`` if the option ``attr_only``
+        has specifies an attribute name.
 
-        Format keys: ``word`` (formatted wordform), ``attrs``
-        (formatted token attributes), ``structs_open`` (structural
-        attributes opening immediately before the token, formatted),
-        ``structs_close`` (structural attributes closing immediately
-        after the token, formatted), ``fields`` (all the token fields
-        specified in the option ``token_fields``, formatted); all the
+        Format keys: ``word`` (formatted wordform; not if
+        ``attr_only``), ``attr`` (formatted attribute value; only if
+        ``attr_only``), ``attrs`` (formatted token attributes),
+        ``structs_open`` (structural attributes opening immediately
+        before the token, formatted), ``structs_close`` (structural
+        attributes closing immediately after the token, formatted),
+        ``fields`` (all the token fields specified in the option
+        ``token_fields``, formatted; not if ``attr_only``); all the
         token attribute names (unformatted values).
         """
+        attrname = kwargs.get("attr_only", "word")
         # Allow for None in word (but where do they come from?)
-        word = self._format_item("word", word=(token.get("word") or ""))
-        if (self._opts.get("attrs") or self.structured_format
-            or len(self._opts.get("token_fields")) > 1):
+        if attrname == "word":
+            itemname = "word"
+            attrval = self._format_item("word", word=(token.get("word") or ""))
+        else:
+            itemname = "attr"
+            attrval = self._format_token_attr(
+                (attrname, token.get(attrname)), item_type="attr_only",
+                **kwargs)
+        if attrname != "word":
+            format_name = "token_attr"
+        elif (self._opts.get("attrs") or self.structured_format
+              or len(self._opts.get("token_fields")) > 1):
             format_name = "token"
         else:
             format_name = "token_noattrs"
         format_args = dict(
-            word=word,
             attrs=self._format_token_attrs(token),
             structs_open=self._format_token_structs_open(token),
             structs_close=self._format_token_structs_close(token))
+        format_args[itemname] = attrval
+        if attrname == "word":
+            fields = self._format_list("token_field",
+                                       self._opts.get("token_fields", []),
+                                       **format_args)
+        else:
+            fields = ""
         # Allow direct format references to attr names
         format_args.update(dict(self._get_token_attrs(token)))
         format_args.update(kwargs)
-        result = self._format_item(
-            format_name,
-            fields=self._format_list("token_field",
-                                     self._opts.get("token_fields", []),
-                                     **format_args),
-            **format_args)
+        result = self._format_item(format_name, fields=fields, **format_args)
         return result
 
     def _format_token_field(self, key, **format_args):
@@ -1048,14 +1111,18 @@ class KorpExportFormatter(object):
             self._format_token_attr,
             **kwargs)
 
-    def _format_token_attr(self, attr_name_value, **format_args):
+    def _format_token_attr(self, attr_name_value, item_type="attr",
+                           **format_args):
         """Format a single token attribute (name, value) pair.
 
         Format keys in ``attr_format``: ``name``, ``value``.
+
+        A format different from ``attr`` may be specified via
+        `item_type`.
         """
         attrname, value = attr_name_value
         return self._format_item(
-            "attr", name=attrname, value=(value or ""), **format_args)
+            item_type, name=attrname, value=(value or ""), **format_args)
 
     def _format_token_structs_open(self, token, **kwargs):
         """Format the structural attributes opening at `token`.
