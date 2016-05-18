@@ -446,11 +446,14 @@ class KorpExportFormatter(object):
 
         for optkey in self._opts.get("list_valued_opts", []):
             if isinstance(self._opts.get(optkey), basestring):
-                self._opts[optkey] = self._opts.get(optkey, "").split(",")
-                adjusted_list = []
-                for item in self._opts[optkey]:
-                    adjusted_list.extend(adjust_item(item))
-                self._opts[optkey] = adjusted_list
+                if self._opts[optkey] == "":
+                    self._opts[optkey] = []
+                else:
+                    self._opts[optkey] = self._opts.get(optkey, "").split(",")
+                    adjusted_list = []
+                    for item in self._opts[optkey]:
+                        adjusted_list.extend(adjust_item(item))
+                    self._opts[optkey] = adjusted_list
 
     def _init_sentence_token_attrs(self):
         """Initialize _sentence_token_attrs and _sentence_token_attr_labels.
