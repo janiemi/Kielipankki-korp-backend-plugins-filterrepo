@@ -313,9 +313,9 @@ class KorpExportFormatter(object):
         "aligned_sep": u" | ",
         "struct_format": u"{name}: {value}",
         "struct_sep": u"; ",
-        "token_format": u"{word}[{attrs}]",
-        "token_noattrs_format": u"{word}",
-        "token_attr_format": u"{attr}",
+        "token_format": u"{match_open}{word}[{attrs}]{match_close}",
+        "token_noattrs_format": u"{match_open}{word}{match_close}",
+        "token_attr_format": u"{match_open}{attr}{match_close}",
         "token_sep": u" ",
         "word_format": u"{word}",
         "attr_only_format": u"{value}",
@@ -915,6 +915,16 @@ class KorpExportFormatter(object):
                 opts["tokens_type"] = tokens_type
             opts.update(kwargs)
             tokens = qr.get_sentence_tokens(sentence, opts["tokens_type"])
+            if (self._opts["match_open"] or self._opts["match_close"]
+                or self._opts["match_marker"]):
+                if tokens_type == "tokens":
+                    opts["match_start"] = qr.get_sentence_match_info(sentence,
+                                                                     "start")
+                    opts["match_end"] = qr.get_sentence_match_info(sentence,
+                                                                   "end")
+                elif tokens_type == "match":
+                    opts["match_start"] = 0
+                    opts["match_end"] = len(tokens)
             format_args[tokens_type] = self._format_tokens(tokens, **opts)
             for attrname in self._sentence_token_attrs:
                 tokens_type2 = tokens_type if tokens_type != "tokens" else "all"
@@ -1059,7 +1069,7 @@ class KorpExportFormatter(object):
         have been specified in option ``attrs``, `structured_format`
         is `False` and the option ``token_fields`` contains at most
         one item, or ``attr_only_format`` if the option ``attr_only``
-        has specifies an attribute name.
+        specifies an attribute name.
 
         Format keys: ``word`` (formatted wordform; not if
         ``attr_only``), ``attr`` (formatted attribute value; only if
@@ -1068,8 +1078,14 @@ class KorpExportFormatter(object):
         before the token, formatted), ``structs_close`` (structural
         attributes closing immediately after the token, formatted),
         ``fields`` (all the token fields specified in the option
-        ``token_fields``, formatted; not if ``attr_only``); all the
-        token attribute names (unformatted values).
+        ``token_fields``, formatted; not if ``attr_only``),
+        ``match_open`` (`_opts["match_open"]` for the first token of a
+        match, the empty string otherwise), ``match_close``
+        (`_opts["match_close"]` for the last token of a match, the
+        empty string otherwise), ``match_marker``
+        (`_opts["match_marker"]` for any token in a match, the empt
+        string for non-match tokens); all the token attribute names
+        (unformatted values).
         """
         attrname = kwargs.get("attr_only", "word")
         # Allow for None in word (but where do they come from?)
@@ -1102,7 +1118,24 @@ class KorpExportFormatter(object):
         # Allow direct format references to attr names
         format_args.update(dict(self._get_token_attrs(token)))
         format_args.update(kwargs)
-        result = self._format_item(format_name, fields=fields, **format_args)
+        match_open = match_close = match_marker = ""
+        if kwargs.get("match_end"):
+            token_num = kwargs.get("token_num", -1)
+            match_start = kwargs.get("match_start")
+            match_end = kwargs.get("match_end")
+            if token_num == match_start:
+                match_open = self._opts.get("match_open", "")
+            if token_num == match_end - 1:
+                match_close = self._opts.get("match_close", "")
+            if match_start <= token_num < match_end:
+                match_marker = self._opts.get("match_marker", "")
+        result = self._format_item(
+            format_name,
+            fields=fields,
+            match_open=match_open,
+            match_close=match_close,
+            match_marker=match_marker,
+            **format_args)
         return result
 
     def _format_token_field(self, key, **format_args):
