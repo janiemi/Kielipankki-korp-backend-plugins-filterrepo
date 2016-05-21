@@ -203,9 +203,7 @@ class KorpExportFormatterDelimitedReference(KorpExportFormatterDelimited):
         "infoitem_format": u"## {label}{sp_or_nl}{value}",
         "infoitem_spacechar": "\t",
         "param_format": u"##   {label}\t{value}",
-        "sentence_format": (u"sentence\t{left_context} {match_open} {match}"
-                            u" {match_close} {right_context}\n"
-                            u"{corpus_info}\n{structs}\n"),
+        "sentence_format": u"sentence\t{tokens}\n{corpus_info}\n{structs}\n",
         "sentence_sep": "\n",
         "corpus_info_fields": (
             "corpus_name,urn,licence_name,licence_link,metadata_link"),
@@ -213,9 +211,9 @@ class KorpExportFormatterDelimitedReference(KorpExportFormatterDelimited):
         "corpus_info_field_sep": "\n",
         "struct_format": u"{name}\t{value}",
         "struct_sep": "\n",
-        "token_format": u"{word}",
-        "match_open": u"<<<",
-        "match_close": u">>>",
+        "token_format": u"{match_open}{word}{match_close}",
+        "match_open": u"<<< ",
+        "match_close": u" >>>",
         }
 
     def __init__(self, **kwargs):

@@ -41,12 +41,10 @@ class KorpExportFormatterText(KorpExportFormatter):
         "title_format": u"## {title}\n",
         "param_format": u"##   {label}: {value}",
         "param_sep": "\n",
-        "sentence_format": (u"{corpus} [{match_pos}]: {left_context}"
-                            u"{match_open}{match}{match_close}"
-                            u"{right_context} || {structs}\n"),
+        "sentence_format": (u"{corpus} [{match_pos}]: {tokens} || {structs}\n"),
         "struct_sep": " | ",
-        "match_open": " <<< ",
-        "match_close": " >>> ",
+        "match_open": "<<< ",
+        "match_close": " >>>",
         }
 
     def __init__(self, **kwargs):
