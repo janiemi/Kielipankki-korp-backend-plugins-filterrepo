@@ -147,6 +147,9 @@ class KorpExporter(object):
             An instance of a korpexport.KorpExportFormatter subclass
         """
         format_name = self._form.get("format", "json").lower()
+        subformat_names = self._form.get("subformat", [])
+        if subformat_names:
+            subformat_names = subformat_names.split(",")
         formatter_class = self._get_formatter_class(format_name)
         # Options passed to _get_formatter() override those passed to
         # the KorpExporter constructor
@@ -154,6 +157,7 @@ class KorpExporter(object):
         opts.update(self._opts)
         opts.update(kwargs.get("options", {}))
         kwargs["format"] = format_name
+        kwargs["subformat"] = subformat_names
         kwargs["options"] = opts
         return formatter_class(**kwargs)
 

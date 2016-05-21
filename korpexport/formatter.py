@@ -78,6 +78,17 @@ class KorpExportFormatter(object):
     is used. Subclasses may also add options of their own. See below
     for the option keys.
 
+    A subclass may also specify subformats (shorthands of a kind for
+    groups of default option values overriding the format defaults) in
+    the class attribute `_subformat_options` (dict), whose keys are
+    subformat names and values dicts overriding the default option
+    values for the format. If a subformat name is not specified, the
+    value from a superclass is used, if any. Note that if a class and
+    its superclass specify options for the same subformat, only the
+    options specified in the subclass take effect, even if the
+    superclass specified values for options that the subclass does
+    not.
+
     A subclass may also need to override or extend some `_format_*`
     methods, in particular if the structure of the output file is
     complex. Most of the default `_format_*` methods use the string
@@ -327,25 +338,33 @@ class KorpExportFormatter(object):
         }
     """Default values for options; subclasses can override individually."""
 
+    _subformats = {}
+    """Option dictionaries for overriding defaults; subclasses can override."""
+
     _formatter = _PartialStringFormatter("[none]")
     """A string formatter: missing keys in formats shown as ``[none]``."""
 
     def __init__(self, **kwargs):
         """Construct a formatter instance.
 
-        Construct a formatter instance for format `kwargs["format"]`.
-        The options `kwargs["options"]` override the values in the
-        class attribute `_option_defaults` for the instance attribute
-        `_opts`. `kwargs["urn_resolver"]` contains the URN resolver to
-        be prefixed to URNs to make them URLs. Other keyword arguments
+        Construct a formatter instance for format `kwargs["format"]`,
+        possibly with subformat(s) `kwargs["subformat"]. The options
+        `kwargs["options"]` override the values in the class attribute
+        `_option_defaults` for the instance attribute `_opts`.
+        `kwargs["urn_resolver"]` contains the URN resolver to be
+        prefixed to URNs to make them URLs. Other keyword arguments
         `kwargs` are currently ignored.
 
         Subclass constructors should call this constructor to ensure
         that all the relevant instance attributes are defined.
         """
         self._format_name = kwargs.get("format")
+        self._subformat_names = kwargs.get("subformat", [])
         self._opts = {}
         self._opts.update(self._get_combined_values("_option_defaults"))
+        subformat_opts = self._get_combined_values("_subformat_options")
+        for subformat in self._subformat_names:
+            self._opts.update(subformat_opts.get(subformat, {}))
         self._opts.update(kwargs.get("options", {}))
         self._urn_resolver = kwargs.get("urn_resolver", "")
         self._sentence_token_attrs = []
