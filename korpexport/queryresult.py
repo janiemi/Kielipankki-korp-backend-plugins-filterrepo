@@ -66,11 +66,12 @@ def get_occurring_attrnames(query_result, keys, struct_name):
     # sentences
     occurring_keys = set()
     for sent in get_sentences(query_result):
-        if isinstance(sent[struct_name], list):
-            for item in sent[struct_name]:
+        result_struct = sent.get(struct_name)
+        if isinstance(result_struct, list):
+            for item in result_struct:
                 occurring_keys |= set(item.keys())
-        else:
-            occurring_keys |= set(sent[struct_name].keys())
+        elif result_struct:
+            occurring_keys |= set(result_struct.keys())
     return [key for key in keys if key in occurring_keys]
 
 
@@ -222,11 +223,14 @@ def get_sentence_structs(sentence, structnames=None):
             structures occurring in `sentence`. If a value is `None`,
             it is converted to an empty string.
     """
-    if structnames is None:
-        return list(sentence["structs"].iteritems())
+    sentence_structs = sentence.get("structs")
+    if sentence_structs is None:
+        return []
+    elif structnames is None:
+        return list(sentence_structs.iteritems())
     else:
         # Value may be None; convert them to empty strings
-        return [(structname, sentence["structs"].get(structname) or "")
+        return [(structname, sentence_structs.get(structname) or "")
                 for structname in structnames]
 
 
