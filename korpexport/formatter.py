@@ -345,7 +345,7 @@ class KorpExportFormatter(object):
         """
         self._format_name = kwargs.get("format")
         self._opts = {}
-        self._opts.update(self._get_combined_option_defaults())
+        self._opts.update(self._get_combined_values("_option_defaults"))
         self._opts.update(kwargs.get("options", {}))
         self._urn_resolver = kwargs.get("urn_resolver", "")
         self._sentence_token_attrs = []
@@ -354,22 +354,21 @@ class KorpExportFormatter(object):
         self._query_result = {}
 
     @classmethod
-    def _get_combined_option_defaults(cls):
-        """Get `_option_defaults` also containing inherited values.
+    def _get_combined_values(cls, attrname):
+        """Get `attrname` values also containing inherited values.
 
         The returned dict contains values of the class attribute
-        `_option_defaults` from all superclasses so that values from
-        classes earlier in the MRO override values from those later.
+        `attrname` from all superclasses so that values from classes
+        earlier in the MRO override values from those later.
         """
-        option_defaults_combined = {}
-        # Skip the last class in MRO, since it is `object`, which does
-        # not contain `_option_defaults`.
+        combined_values = {}
+        # Skip the last class in MRO, since it is `object`.
         for superclass in reversed(cls.__mro__[:-1]):
             try:
-                option_defaults_combined.update(superclass._option_defaults)
+                combined_values.update(getattr(superclass, attrname))
             except AttributeError:
                 pass
-        return option_defaults_combined
+        return combined_values
 
     def get_options(self):
         """Get the options in effect (a dict)."""
