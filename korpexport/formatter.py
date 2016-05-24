@@ -1109,15 +1109,15 @@ class KorpExportFormatter(object):
             structs_open=self._format_token_structs_open(token),
             structs_close=self._format_token_structs_close(token))
         format_args[itemname] = attrval
+        # Allow direct format references to attr names
+        format_args.update(dict(self._get_token_attrs(token)))
+        format_args.update(kwargs)
         if attrname == "word":
             fields = self._format_list("token_field",
                                        self._opts.get("token_fields", []),
                                        **format_args)
         else:
             fields = ""
-        # Allow direct format references to attr names
-        format_args.update(dict(self._get_token_attrs(token)))
-        format_args.update(kwargs)
         match_open = match_close = match_marker = ""
         if kwargs.get("match_end"):
             token_num = kwargs.get("token_num", -1)
