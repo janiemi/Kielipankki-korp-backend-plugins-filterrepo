@@ -112,7 +112,24 @@ class KorpExportFormatterDelimitedSentence(KorpExportFormatterDelimited):
                             "?licence_link,match_pos,left_context,match,"
                             "right_context,?aligned,*structs"),
         "sentence_field_sep": "\t",
-        }
+    }
+
+    _subformat_options = {
+        "lemmas-resultinfo": {
+            "show_info": "false",
+            "infoitem_format": u"{value}",
+            "param_format": u"{key}={value}",
+            "param_sep": "; ",
+            "infoitems": "date,korp_url",
+            "sentence_fields": ("hit_num,corpus,tokens,lemmas_all,?aligned,"
+                                "*structs,?urn,?metadata_link,?licence_name,"
+                                "date,hitcount,?korp_url,params"),
+            "sentence_token_attrs": "lemma",
+            "token_format": u"{match_open}{word}{match_close}",
+            # "match_open": u"<<<",
+            # "match_close": u">>>",
+        },
+    }
 
     def __init__(self, **kwargs):
         super(KorpExportFormatterDelimitedSentence, self).__init__(**kwargs)
