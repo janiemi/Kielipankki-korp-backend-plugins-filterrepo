@@ -525,8 +525,11 @@ class KorpExporter(object):
         available in the backend for all the corpora in the query
         results to be exported.
         """
+        corpora = self._get_corpus_names()
+        if not corpora:
+            return
         korp_info_params = {'command': 'info',
-                            'corpus': ','.join(self._get_corpus_names())}
+                            'corpus': ','.join(corpora)}
         korp_corpus_info_json = self._query_korp_server(korp_server_url,
                                                         korp_info_params)
         korp_corpus_info = json.loads(korp_corpus_info_json)
@@ -544,7 +547,7 @@ class KorpExporter(object):
         aligned corpora.
         """
         return set([corpname
-                    for corpus_hit in self._query_result["kwic"]
+                    for corpus_hit in self._query_result.get("kwic", [])
                     for corpname in corpus_hit["corpus"].split("|")])
 
     def _get_filename(self):
