@@ -108,8 +108,8 @@ class KorpExportFormatterDelimitedSentence(KorpExportFormatterDelimited):
         "content_format": u"{sentence_field_headings}{sentences}\n\n{info}",
         "sentence_format": u"{fields}",
         "sentence_sep": "\n",
-        "sentence_fields": ("corpus,urn,metadata_link,licence_name,"
-                            "licence_link,match_pos,left_context,match,"
+        "sentence_fields": ("corpus,?urn,?metadata_link,?licence_name,"
+                            "?licence_link,match_pos,left_context,match,"
                             "right_context,?aligned,*structs"),
         "sentence_field_sep": "\t",
         }
