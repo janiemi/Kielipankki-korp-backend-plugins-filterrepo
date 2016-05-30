@@ -451,17 +451,30 @@ class KorpExportFormatter(object):
 
             If `item` is of the form ``*name``, replace it with a list
             containing the items in the option ``name``; if `item` is
-            ``?aligned``, add ``aligned`` only if the corpus is a
-            parallel corpus. The return value is a list.
+            of the form ``?name``, add ``name`` only if the
+            information `item` is available for any corpus of the
+            query result (or for ``?aligned``, if the corpus is a
+            parallel corpus). The return value is a list.
             """
             if item.startswith("*"):
                 return self._opts.get(item[1:], [])
-            elif item == "?aligned":
-                return ([item[1:]] if qr.is_parallel_corpus(self._query_result)
-                        else [])
+            elif item.startswith("?"):
+                return [item[1:]] if item[1:] in available_corpus_info else []
             else:
                 return [item]
 
+        available_corpus_info = qr.get_occurring_corpus_info(self._query_result)
+        if "urn" in available_corpus_info or "url" in available_corpus_info:
+            available_corpus_info.add("link")
+        for linktype in ["licence", "metadata"]:
+            if (linktype + "_urn" in available_corpus_info
+                or linktype + "_url" in available_corpus_info):
+                available_corpus_info.add(linktype + "_link")
+        if qr.is_parallel_corpus(self._query_result):
+            available_corpus_info.add("aligned")
+        for item in ["korp_url", "korp_server_url"]:
+            if item in self._opts:
+                available_corpus_info.add(item)
         for optkey in self._opts.get("list_valued_opts", []):
             if isinstance(self._opts.get(optkey), basestring):
                 if self._opts[optkey] == "":

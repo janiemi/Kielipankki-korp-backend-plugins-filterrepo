@@ -75,6 +75,19 @@ def get_occurring_attrnames(query_result, keys, struct_name):
     return [key for key in keys if key in occurring_keys]
 
 
+def get_occurring_corpus_info(query_result):
+    """Return the keys of ``corpus_info`` in `query_result` as a set."""
+    result = set()
+    for sentence in get_sentences(query_result):
+        for key, val in sentence.get("corpus_info", {}).iteritems():
+            if isinstance(val, basestring):
+                result.add(key)
+            else:
+                for subval in val:
+                    result.add(key + "_" + subval)
+    return result
+
+
 def get_sentence_corpus(sentence):
     """Get the corpus id (str) for `sentence`."""
     return sentence.get("corpus", "")
