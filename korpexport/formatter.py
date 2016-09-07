@@ -917,7 +917,7 @@ class KorpExportFormatter(object):
             structs=self._format_structs(sentence),
             struct=struct,
             corpus_info_field=corpus_info,
-            hit_num=(int(self._infoitems["param"]["start"])
+            hit_num=(int(self._infoitems["param"].get("start") or 0)
                      + kwargs["sentence_num"]),
             arg=kwargs)
         tokens_type_info = [

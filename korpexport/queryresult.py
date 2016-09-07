@@ -79,7 +79,7 @@ def get_occurring_corpus_info(query_result):
     """Return the keys of ``corpus_info`` in `query_result` as a set."""
     result = set()
     for sentence in get_sentences(query_result):
-        for key, val in sentence.get("corpus_info", {}).iteritems():
+        for key, val in (sentence.get("corpus_info") or {}).iteritems():
             if isinstance(val, basestring):
                 result.add(key)
             else:
