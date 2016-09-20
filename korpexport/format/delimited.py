@@ -129,6 +129,18 @@ class KorpExportFormatterDelimitedSentence(KorpExportFormatterDelimited):
             # "match_open": u"<<<",
             # "match_close": u">>>",
         },
+        # Similar to "lemmas-resultinfo" above, but separate columns
+        # for matching tokens and context tokens. To combine with
+        # lemmas-resultinfo, specify "lemmas-resultinfo,lemmas-kwic"
+        # as the subformat.
+        "lemmas-kwic": {
+            "sentence_fields": (
+                "hit_num,corpus,left_context,match,right_context,"
+                "lemmas_left_context,lemmas_match,lemmas_right_context,"
+                "?aligned,*structs,?urn,?metadata_link,?licence_name,date,"
+                "hitcount,?korp_url,params"),
+            "sentence_token_attrs": "lemma",
+        },
     }
 
     def __init__(self, **kwargs):
