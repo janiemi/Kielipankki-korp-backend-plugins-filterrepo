@@ -47,5 +47,20 @@ class KorpExportFormatterText(KorpExportFormatter):
         "match_close": " >>>",
         }
 
+    _subformat_options = {
+        # Bare sentences without annotations or metadata, sentence per
+        # line; the fist line contains title, timestamp and Korp URL
+        "sentences-bare": {
+            "infoitems_format": u"{title} | {infoitems}\n",
+            "infoitem_format": u"{value}",
+            "infoitems" : "date,korp_url",
+            "infoitem_sep" : " | ",
+            "title_format": u"{title}",
+            "sentence_format": u"{tokens}\n",
+        },
+    }
+    # Subformat aliases
+    _subformat_options["bare"] = _subformat_options["sentences-bare"]
+
     def __init__(self, **kwargs):
         super(KorpExportFormatterText, self).__init__(**kwargs)
