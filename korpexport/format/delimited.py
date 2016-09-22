@@ -117,6 +117,7 @@ class KorpExportFormatterDelimitedSentence(KorpExportFormatterDelimited):
     _subformat_options = {
         "lemmas-resultinfo": {
             "show_info": "false",
+            "title_format": u"{title}",
             "infoitem_format": u"{value}",
             "param_format": u"{key}={value}",
             "param_sep": "; ",

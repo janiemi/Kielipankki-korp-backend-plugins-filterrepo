@@ -57,6 +57,7 @@ class KorpExportFormatterText(KorpExportFormatter):
             "infoitem_sep" : " | ",
             "title_format": u"{title}",
             "sentence_format": u"{tokens}\n",
+            "skip_leading_lines": "1",
         },
     }
     # Subformat aliases
