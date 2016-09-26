@@ -405,7 +405,7 @@ class KorpExportFormatter(object):
         """
         # TODO: Allow the option to have a bool value in addition to a
         # str interpreted as a bool
-        return (self._opts[optname].lower()
+        return (self._opts.get(optname, "").lower()
                 not in ["false", "no", "off", "0", ""])
 
     def get_option_int(self, optname):
@@ -416,9 +416,12 @@ class KorpExportFormatter(object):
         """
         value = None
         try:
-            value = int(self._opts[optname])
+            value = int(self._opts.get(optname))
         except (ValueError, TypeError):
-            value = int(self._option_defaults[optname])
+            try:
+                value = int(self._option_defaults.get(optname))
+            except (ValueError, TypeError):
+                pass
         return value
 
     def make_download_content(self, query_result, query_params=None,
