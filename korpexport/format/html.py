@@ -38,6 +38,11 @@ class KorpExportFormatterHtml(KorpExportFormatter):
         html_head_format: Format string for the HTML ``head`` element
             content; format key: ``title`` (``title`` element
             content)
+        html_style: CSS style definitions to be added inside the
+            ``style`` element of ``head``; no format keys. Note that
+            the option name does _not_ end in ``_format``, so that the
+            <, > and & in the content are encoded as HTML character
+            entity references.
         html_title_format: Format string for the HTML ``title``
             content; the format keys are the same as for
             ``infoitems_format``
@@ -75,9 +80,11 @@ class KorpExportFormatterHtml(KorpExportFormatter):
             u"{doctype}\n<html>\n<head>\n{head}\n</head>\n"
             u"<body>\n{body}</body>\n</html>\n"),
         "html_doctype_format": "<!DOCTYPE html>",
-        "html_head_format": (
-            u"<meta charset=\"utf-8\"/>\n<title>{title}</title>"),
+        "html_head_format": (u"<meta charset=\"utf-8\"/>\n"
+                             u"<title>{title}</title>\n"
+                             u"<style>{style}</style>"),
         "html_title_format": u"{title} {date}",
+        "html_style": u"",
         "html_body_format": u"{heading}\n{korp_link}\n<hr/>\n{lines}",
         "html_heading_format": u"<h1>{title} {date}</h1>",
         "html_korp_link_format": (
@@ -124,7 +131,8 @@ class KorpExportFormatterHtml(KorpExportFormatter):
 
     def _format_html_head(self):
         return self._format_item("html_head",
-                                 title=self._format_html_title())
+                                 title=self._format_html_title(),
+                                 style=self._opts.get("html_style"))
 
     def _format_html_title(self):
         return self._format_item("html_title", **self._infoitems)
