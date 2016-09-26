@@ -127,6 +127,7 @@ class KorpExportFormatterDelimitedSentence(KorpExportFormatterDelimited):
                                 "date,hitcount,?korp_url,params"),
             "sentence_token_attrs": "lemma",
             "token_format": u"{match_open}{word}{match_close}",
+            "heading_rows": 1,
             # "match_open": u"<<<",
             # "match_close": u">>>",
         },
@@ -244,6 +245,7 @@ class KorpExportFormatterDelimitedReference(KorpExportFormatterDelimited):
         "token_format": u"{match_open}{word}{match_close}",
         "match_open": u"<<< ",
         "match_close": u" >>>",
+        "heading_cols": 1,
         }
 
     def __init__(self, **kwargs):

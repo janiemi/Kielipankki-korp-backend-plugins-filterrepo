@@ -167,3 +167,56 @@ class KorpExportFormatterHtml(KorpExportFormatter):
             lambda mo: self._format_item("html_match", match=mo.group(1)),
             line)
 
+
+class KorpExportFormatterHtmlTable(KorpExportFormatterHtml):
+
+    """
+    Format a tabular Korp query result as an HTML table.
+
+    A mix-in class of actual formatters for HTML formats. The class
+    does not specify the content of the fields. The class overrides
+    `_postprocess` to produce the HTML file. The class can be combined
+    (via multiple inheritance) with content formatting classes
+    producing tabular output (columns separated by tabs, rows by
+    newlines) to produce meaningful output.
+
+    The formatter uses the following options (in `_option_defaults`)
+    in addition to those specified in :class:`KorpExportFormatterHtml`
+    above:
+        html_heading_cell_format: Format string for a heading cell,
+            including the cell tags; format keys: ``cell`` (cell
+            content)
+        html_data_cell_format: Format string for a data cell,
+            including the cell tags; format keys: ``cell`` (cell
+            content)
+        heading_rows (int): The number of rows at the beginning of the
+            table to format as headings
+        heading_cols (int): The number of columns on the left side of
+            the table to format as headings
+    """
+
+    formats = ["html-table", "html_table"]
+
+    _option_defaults = {
+        "html_style": u"th { text-align: left; }",
+        "html_body_format": (
+            u"{heading}\n{korp_link}\n<hr/>\n<table>\n{lines}</table>\n"),
+        "html_line_format": u"<tr>{line}</tr>\n",
+        "html_heading_cell_format": u"<th>{cell}</th>",
+        "html_data_cell_format": u"<td>{cell}</td>",
+    }
+
+    def __init__(self, **kwargs):
+        super(KorpExportFormatterHtmlTable, self).__init__(**kwargs)
+        self._heading_rows = self.get_option_int("heading_rows") or 0
+        self._heading_cols = self.get_option_int("heading_cols") or 0
+
+    def _format_html_line(self, line, linenr=None):
+        result = []
+        for colnr, col in enumerate(line.split("\t")):
+            fmt = ("html_heading_cell"
+                   if ((linenr is not None and linenr < self._heading_rows)
+                       or (colnr < self._heading_cols))
+                   else "html_data_cell")
+            result.append(self._format_item(fmt, cell=col))
+        return "".join(result)
