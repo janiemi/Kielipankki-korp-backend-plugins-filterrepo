@@ -10,6 +10,8 @@ Format Korp query results in HTML.
 
 from __future__ import absolute_import
 
+import re
+
 from xml.sax.saxutils import escape
 
 from korpexport.formatter import KorpExportFormatter
@@ -28,20 +30,40 @@ class KorpExportFormatterHtml(KorpExportFormatter):
 
     The formatter uses the following options (in `_option_defaults`)
     in addition to those specified in :class:`KorpExportFormatter`:
-        match_elem (str): The HTML element in which to enclose mathces
-        match_attrs (str): The HTML attributes to add to the start tag
-            of match_elem
-        html_title_format: Format string for the HTML title, without
-            the title start and end tag; the format keys are the same
-            as for ``infoitems_format``
-        html_opener_format: Format for the page heading and possibly
-            other information before the actual content; the format
-            should include all the needed HTML tags; the format keys
-            are the same as for ``infoitems_format``
-        html_line_format: Format
+        html_page_format: Format string for the complete HTML page;
+            format keys: ``doctype`` (HTML doctype), ``head`` (HTML
+            ``head`` content), ``body`` (HTML ``body`` content)
+        html_doctype_format: Format string for the HTML doctype
+            (literal string, no format keys)
+        html_head_format: Format string for the HTML ``head`` element
+            content; format key: ``title`` (``title`` element
+            content)
+        html_title_format: Format string for the HTML ``title``
+            content; the format keys are the same as for
+            ``infoitems_format``
+        html_body_format: Format string for the HTML ``body`` content;
+            format keys: ``heading`` (a page heading, not necessarily
+            only heading elements), ``korp_link`` (a link to the Korp
+            search), ``lines`` (the actual content linewise)
+        html_haeding_format: Format string for the HTML page heading;
+             the format keys are the same as for ``infoitems_format``
+        html_korp_link_format: Format string for the HTML Korp search
+            link; the format keys are the same as for
+            ``infoitems_format``
+        html_line_format: Format string for the HTML markup of a
+            single line in the text to be postprocessed; format key:
+            ``line`` (the text of the line, possibly with matches
+            marked)
+        html_match_format: Format string for the HTML markup of a
+            match; format key: ``match`` (the text enclosed in
+            ``match_open`` and ``match_close``)
         skip_leading_lines (int): The number of lines to skip in the
             content before formatting content lines, typically some
             kind of header lines
+
+    The literal HTML tags and ampersands in the HTML formatting
+    options ``html_*_format`` are protected from conversion to HTML
+    character entity references.
     """
 
     formats = ["html"]
@@ -49,61 +71,91 @@ class KorpExportFormatterHtml(KorpExportFormatter):
     filename_extension = ".html"
 
     _option_defaults = {
-        "match_elem": "strong",
-        "match_attrs": "",
+        "html_page_format": (
+            u"{doctype}\n<html>\n<head>\n{head}\n</head>\n"
+            u"<body>\n{body}</body>\n</html>\n"),
+        "html_doctype_format": "<!DOCTYPE html>",
+        "html_head_format": (
+            u"<meta charset=\"utf-8\"/>\n<title>{title}</title>"),
         "html_title_format": u"{title} {date}",
-        "html_opener_format": (
-            u"<h1>{title} {date}</h1>\n"
-            u"<p><a href=\"{korp_url}\" target=\"_blank\">{korp_url}</a></p>"
-            u"<hr/>\n"),
+        "html_body_format": u"{heading}\n{korp_link}\n<hr/>\n{lines}",
+        "html_heading_format": u"<h1>{title} {date}</h1>",
+        "html_korp_link_format": (
+            u"<p><a href=\"{korp_url}\" target=\"_blank\">{korp_url}</a></p>"),
+        "html_line_format": u"<p>{line}</p>\n",
+        "html_match_format": u"<strong>{match}</strong>",
     }
 
     def __init__(self, **kwargs):
         super(KorpExportFormatterHtml, self).__init__(**kwargs)
-        if self._opts["match_attrs"]:
-            self._opts["match_attrs"] = " " + self._opts["match_attrs"]
-        self._match_open = escape(self._opts.get("match_open"))
-        self._match_close = escape(self._opts.get("match_close"))
+        self._match_open = self._opts.get("match_open") or ""
+        self._match_close = self._opts.get("match_close") or ""
         self._match_starttag = ""
         self._match_endtag = ""
-        self._tag_matches = False
-        if self._match_open and self._match_close and self._opts["match_elem"]:
-            self._match_starttag = ("<" + self._opts["match_elem"]
-                                    + self._opts["match_attrs"] + ">")
-            self._match_endtag = "</" + self._opts["match_elem"] + ">"
-            self._tag_matches = True
-        for html_format in ["html_title_format", "html_opener_format"]:
-            self._opts[html_format] = self._protect_html_tags(
-                self._opts[html_format])
+        self._match_re = None
+        if (self._match_open and self._match_close
+            and self._opts["html_match_format"]):
+            self._match_re = re.compile(re.escape(self._match_open) + r"(.*?)"
+                                        + re.escape(self._match_close))
+        for optname, optval in self._opts.iteritems():
+            if optname.startswith('html_') and optname.endswith('_format'):
+                self._opts[optname] = self._protect_html_tags(optval)
         self._skip_leading_lines = (self.get_option_int("skip_leading_lines")
                                     or 0)
 
     def _protect_html_tags(self, html_text):
-        return html_text.replace("<", "\x01").replace(">", "\x02")
+        return (html_text.replace("<", "\x01")
+                .replace(">", "\x02")
+                .replace("&", "\x03"))
 
     def _restore_html_tags(self, html_text):
-        return html_text.replace("\x01", "<").replace("\x02", ">")
+        return (html_text.replace("\x01", "<")
+                .replace("\x02", ">")
+                .replace("\x03", "&"))
 
     def _postprocess(self, text):
-        title = self._format_html("title", **self._infoitems)
-        opener = self._format_html("opener", **self._infoitems)
-        result = [u"<!DOCTYPE html>\n<html>\n"
-                  + u"<head>\n<meta charset=\"utf-8\"/>\n<title>"
-                  + title + u"</title>\n</head>\n<body>\n" + opener]
+        return self._restore_html_tags(escape(self._format_html_page(text)))
+
+    def _format_html_page(self, text):
+        return self._format_item("html_page",
+                                 doctype=self._opts.get("html_doctype_format"),
+                                 head=self._format_html_head(),
+                                 body=self._format_html_body(text))
+
+    def _format_html_head(self):
+        return self._format_item("html_head",
+                                 title=self._format_html_title())
+
+    def _format_html_title(self):
+        return self._format_item("html_title", **self._infoitems)
+
+    def _format_html_body(self, text):
+        return self._format_item("html_body",
+                                 heading=self._format_html_heading(),
+                                 korp_link=self._format_html_korp_link(),
+                                 lines=self._format_html_lines(text))
+
+    def _format_html_heading(self):
+        return self._format_item("html_heading", **self._infoitems)
+
+    def _format_html_korp_link(self):
+        return self._format_item("html_korp_link", **self._infoitems)
+
+    def _format_html_lines(self, text):
+        result = []
         for linenr, line in enumerate(text.rstrip("\n").split("\n")):
             if linenr >= self._skip_leading_lines:
-                result.append(u"<p>" + self._mark_matches(escape(line))
-                              + u"</p>\n")
-        result.append(u"</body>\n</html>\n")
+                result.append(
+                    self._format_item("html_line",
+                                      line=self._format_html_line(
+                                          line, linenr=linenr)))
         return "".join(result)
 
-    def _format_html(self, itemname, **format_args):
-        return self._restore_html_tags(escape(self._format_item(
-            "html_" + itemname, **format_args)))
+    def _format_html_line(self, line, linenr=None):
+        return (self._format_html_match(line) if self._match_re else line)
 
-    def _mark_matches(self, line):
-        if self._tag_matches:
-            return (line.replace(self._match_open, self._match_starttag)
-                    .replace(self._match_close, self._match_endtag))
-        else:
-            return line
+    def _format_html_match(self, line):
+        return self._match_re.sub(
+            lambda mo: self._format_item("html_match", match=mo.group(1)),
+            line)
+
