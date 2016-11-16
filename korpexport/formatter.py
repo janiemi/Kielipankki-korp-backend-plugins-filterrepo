@@ -423,6 +423,7 @@ class KorpExportFormatter(object):
         self._sentence_token_attr_labels = {}
         self._query_params = {}
         self._query_result = {}
+        self._corpus_info = {}
 
     @classmethod
     def _get_combined_values(cls, attrname):
@@ -645,17 +646,20 @@ class KorpExportFormatter(object):
         ``licence_link``: link to licence (URN with resolver prefix or URL)
         ``metadata_link``: link to metadata (URN with resolver prefix or URL)
         """
-        return dict(
-            corpus_name=qr.get_sentence_corpus(sentence),
-            urn=qr.get_sentence_corpus_urn(sentence),
-            link=qr.get_sentence_corpus_link(
-                sentence, urn_resolver=self._urn_resolver),
-            licence_name=qr.get_sentence_corpus_info_item(
-                sentence, "licence", "name"),
-            licence_link=qr.get_sentence_corpus_link(
-                sentence, "licence", urn_resolver=self._urn_resolver),
-            metadata_link=qr.get_sentence_corpus_link(
-                sentence, "metadata", urn_resolver=self._urn_resolver))
+        corpus_name = qr.get_sentence_corpus(sentence)
+        if corpus_name not in self._corpus_info:
+            self._corpus_info[corpus_name] = dict(
+                corpus_name=corpus_name,
+                urn=qr.get_sentence_corpus_urn(sentence),
+                link=qr.get_sentence_corpus_link(
+                    sentence, urn_resolver=self._urn_resolver),
+                licence_name=qr.get_sentence_corpus_info_item(
+                    sentence, "licence", "name"),
+                licence_link=qr.get_sentence_corpus_link(
+                    sentence, "licence", urn_resolver=self._urn_resolver),
+                metadata_link=qr.get_sentence_corpus_link(
+                    sentence, "metadata", urn_resolver=self._urn_resolver))
+        return self._corpus_info[corpus_name]
 
     def _get_token_attrs(self, token, all_attrs=False):
         """Get the (positional) attributes of a token.
