@@ -38,7 +38,7 @@ class _PartialStringFormatter(string.Formatter):
     https://gist.github.com/navarroj/7689682
     """
 
-    def __init__(self, missing=""):
+    def __init__(self, missing="", **kwargs):
         self.missing = missing
 
     def get_field(self, field_name, args, kwargs):
@@ -55,6 +55,55 @@ class _PartialStringFormatter(string.Formatter):
         else:
             return super(_PartialStringFormatter, self).format_field(
                 value, spec)
+
+
+class _LazyStringFormatter(string.Formatter):
+
+    """
+    A string formatter allowing lazy evaluation of arguments via functions.
+
+    A string formatter that allows a kind of a lazy evaluation of
+    format arguments: if a format argument is a function, it is called
+    (without arguments) to get the actual value. If a value is not
+    referred to in the format string, the corresponding function is
+    not called.
+    """
+
+    def __init__(self, **kwargs):
+        super(_LazyStringFormatter, self).__init__(**kwargs)
+        # self._value_cache = {}
+
+    def get_value(self, key, args, kwargs):
+        value = super(_LazyStringFormatter, self).get_value(key, args, kwargs)
+        if callable(value):
+            value = value()
+            # # The function value might be cached, so that format
+            # # references like {a[1]} and {a[2]} would only need a
+            # # single call to evaluate a.
+            # if value not in self._value_cache:
+            #     self._value_cache[value] = value()
+            # value = self._value_cache[value]
+        return value
+
+
+class _LazyPartialStringFormatter(_PartialStringFormatter,
+                                  _LazyStringFormatter):
+
+    """
+    A string formatter handling missing keys and allowing lazy evaluation.
+
+    A string formatter combining the formatters handling missing keys
+    and allowing lazy evaluation with functions.
+    """
+
+    def __init__(self, **kwargs):
+        super(_LazyPartialStringFormatter, self).__init__(**kwargs)
+
+    def format_field(self, value, spec):
+        if callable(value):
+            value = value()
+        return super(_LazyPartialStringFormatter, self).format_field(
+            value, spec)
 
 
 class KorpExportFormatter(object):
@@ -344,7 +393,7 @@ class KorpExportFormatter(object):
     _subformats = {}
     """Option dictionaries for overriding defaults; subclasses can override."""
 
-    _formatter = _PartialStringFormatter("[none]")
+    _formatter = _LazyPartialStringFormatter(missing="[none]")
     """A string formatter: missing keys in formats shown as ``[none]``."""
 
     def __init__(self, **kwargs):
@@ -532,14 +581,15 @@ class KorpExportFormatter(object):
         ``korp_server_url``: URL of the Korp server (backend) used
         """
         self._infoitems = dict(
-            params=self._format_params(),
+            params=lambda: self._format_params(),
             # Also allow format references {param[name]}
             param=self._query_params,
-            date=self._format_date(),
-            hitcount=self._format_hitcount(),
-            sentence_field_headings=self._format_field_headings("sentence"),
-            token_field_headings=self._format_field_headings("token"),
-            title=self._format_title(),
+            date=lambda: self._format_date(),
+            hitcount=lambda: self._format_hitcount(),
+            sentence_field_headings=(
+                lambda: self._format_field_headings("sentence")),
+            token_field_headings=lambda: self._format_field_headings("token"),
+            title=lambda: self._format_title(),
             korp_url=self._opts.get("korp_url"),
             korp_server_url=self._opts.get("korp_server_url"))
 
@@ -575,9 +625,12 @@ class KorpExportFormatter(object):
         Return a dict with structural attribute names as keys and
         formatted values as values.
         """
-        return dict([(key, self._format_struct((key, val), **kwargs))
-                     for (key, val)
-                     in self._get_sentence_structs(sentence, all_structs=True)])
+        return dict(
+            [(key,
+              lambda key=key, val=val: self._format_struct((key, val),
+                                                           **kwargs))
+             for (key, val)
+             in self._get_sentence_structs(sentence, all_structs=True)])
 
     def _get_corpus_info(self, sentence):
         """Get information on the corpus from which a sentence originates.
@@ -658,7 +711,8 @@ class KorpExportFormatter(object):
         if skip_re:
             skip_re = re.compile(r"^" + skip_re + r"$", re.UNICODE)
         return self._opts[item_type + "_sep"].join(
-            formatted_elem for elemnum, elem in enumerate(list_)
+            formatted_elem
+            for elemnum, elem in enumerate(list_)
             for formatted_elem in [
                     format_fn(elem, **updated(kwargs, dict([(item_type + "_num",
                                                              elemnum)])))]
@@ -680,9 +734,9 @@ class KorpExportFormatter(object):
         return self._format_item(
             item_type,
             key=key,
-            label=self._opts[item_type + "_labels"].get(key, key),
+            label=lambda: self._opts[item_type + "_labels"].get(key, key),
             value=value,
-            sp_or_nl="\n" if "\n" in unicode(value) else space,
+            sp_or_nl=lambda: "\n" if "\n" in unicode(value) else space,
             **format_args)
 
     def _format_field_headings(self, item_type, **kwargs):
@@ -700,7 +754,7 @@ class KorpExportFormatter(object):
             return ""
         fields = self._opts.get(item_type + "_fields")
         if fields:
-            headings = self._format_list(
+            headings = lambda: self._format_list(
                 item_type + "_field",
                 fields,
                 lambda item, **kwargs: (
@@ -713,21 +767,6 @@ class KorpExportFormatter(object):
             headings = ""
         return self._format_item(
             "field_headings", field_headings=headings, **kwargs)
-
-    # def _format_part(self, format_name, arg_fn_args, **format_arg_fns):
-    #     # An untested, unused formatting function with a kind of lazy
-    #     # evaluation of format arguments: only those arguments are
-    #     # evaluated which occur in the format string.
-    #     format_str = self._opts[format_name + "_format"]
-
-    #     def make_format_arg_value(arg_name, arg_fn):
-    #         return (arg_fn(*arg_fn_args) if "{" + arg_name + "}" in format_str
-    #                 else "")
-
-    #     format_args = [(name, make_format_arg_value(name, format_arg_fn))
-    #                    for (name, format_arg_fn)
-    #                    in format_arg_fns.iteritems()]
-    #     return self._format_item(format_name, **format_args)
 
     # Concrete formatter methods, designed to be overridden in
     # subclasses as necessary.
@@ -744,8 +783,8 @@ class KorpExportFormatter(object):
         """
         return self._format_item(
             "content",
-            info=self._format_infoitems(**kwargs),
-            sentences=self._format_sentences(**kwargs),
+            info=lambda: self._format_infoitems(**kwargs),
+            sentences=lambda: self._format_sentences(**kwargs),
             **self._infoitems)
 
     # Formatting methods for query and result information items (meta
@@ -767,7 +806,7 @@ class KorpExportFormatter(object):
             format_args.update(self._infoitems)
             return self._format_item(
                 "infoitems",
-                infoitems=self._format_infoitem_fields(),
+                infoitems=lambda: self._format_infoitem_fields(),
                 **format_args)
         else:
             return ""
@@ -806,7 +845,7 @@ class KorpExportFormatter(object):
         option ``title``). If ``title`` is empty, return an empty
         string.
         """
-        title = title=self._opts.get("title")
+        title = self._opts.get("title")
         if title is None:
             return ""
         else:
@@ -843,7 +882,7 @@ class KorpExportFormatter(object):
         return self._format_item(
             "params",
             param=self._query_params,
-            params=self._format_param_fields(),
+            params=lambda: self._format_param_fields(),
             **format_args)
 
     def _format_param_fields(self, **format_args):
@@ -908,7 +947,8 @@ class KorpExportFormatter(object):
         :method:`_get_corpus_info`.
         """
 
-        struct = self._get_formatted_sentence_structs(sentence, **kwargs)
+        struct = lambda: self._get_formatted_sentence_structs(sentence,
+                                                              **kwargs)
         corpus = qr.get_sentence_corpus(sentence)
         corpus_info = self._get_corpus_info(sentence)
         format_args = dict(
@@ -916,12 +956,12 @@ class KorpExportFormatter(object):
             match_pos=qr.get_sentence_match_position(sentence),
             match_open=self._opts["match_open"],
             match_close=self._opts["match_close"],
-            aligned=self._format_aligned_sentences(sentence),
-            structs=self._format_structs(sentence),
+            aligned=lambda: self._format_aligned_sentences(sentence),
+            structs=lambda: self._format_structs(sentence),
             struct=struct,
             corpus_info_field=corpus_info,
-            hit_num=(int(self._infoitems["param"].get("start") or 0)
-                     + kwargs["sentence_num"]),
+            hit_num=lambda: (int(self._infoitems["param"].get("start") or 0)
+                             + kwargs["sentence_num"]),
             arg=kwargs)
         tokens_type_info = [
             ("tokens", dict(tokens_type="all")),
@@ -944,12 +984,17 @@ class KorpExportFormatter(object):
                 elif tokens_type == "match":
                     opts["match_start"] = 0
                     opts["match_end"] = len(tokens)
-            format_args[tokens_type] = self._format_tokens(tokens, **opts)
+            # Pass default arguments to lambda, so that each call gets
+            # its own argument values
+            format_args[tokens_type] = (lambda tokens=tokens, opts=opts:
+                                        self._format_tokens(tokens, **opts))
             for attrname in self._sentence_token_attrs:
                 tokens_type2 = tokens_type if tokens_type != "tokens" else "all"
-                format_args[self._sentence_token_attr_labels[attrname] + "_"
-                            + tokens_type2] = self._format_tokens(
-                                tokens, attr_only=attrname, **opts)
+                format_arg_name = (self._sentence_token_attr_labels[attrname]
+                                   + "_" + tokens_type2)
+                format_args[format_arg_name] = (
+                    lambda tokens=tokens, attrname=attrname, opts=opts:
+                    self._format_tokens(tokens, attr_only=attrname, **opts))
         format_args.update(kwargs)
         # Allow direct format references to struct names (unformatted
         # values)
@@ -957,14 +1002,16 @@ class KorpExportFormatter(object):
         format_args.update(self._infoitems)
         format_args.update(corpus_info)
         format_args.update(
-            dict(corpus_info=self._format_corpus_info(**format_args)))
-        format_args.update(dict(info=self._format_item("sentence_info",
-                                                       **format_args)))
+            dict(corpus_info=lambda: self._format_corpus_info(**format_args)))
+        format_args.update(
+            dict(info=lambda: self._format_item("sentence_info",
+                                                **format_args)))
         return self._format_item(
             "sentence",
-            fields=self._format_list("sentence_field",
-                                     self._opts.get("sentence_fields", []),
-                                     **format_args),
+            fields=lambda: self._format_list(
+                "sentence_field",
+                self._opts.get("sentence_fields", []),
+                **format_args),
             **format_args)
 
     def _format_sentence_field(self, key, **format_args):
@@ -990,7 +1037,7 @@ class KorpExportFormatter(object):
         """
         return self._format_item(
             "corpus_info",
-            fields=self._format_corpus_info_fields(**kwargs),
+            fields=lambda: self._format_corpus_info_fields(**kwargs),
             **kwargs)
 
     def _format_corpus_info_fields(self, **kwargs):
@@ -1048,7 +1095,7 @@ class KorpExportFormatter(object):
         return self._format_item(
             "aligned",
             align_key=align_key,
-            sentence=self._format_tokens(
+            sentence=lambda: self._format_tokens(
                 sentence, tokens_type="aligned", **format_args),
             **format_args)
 
@@ -1110,10 +1157,11 @@ class KorpExportFormatter(object):
         # Allow for None in word (but where do they come from?)
         if attrname == "word":
             itemname = "word"
-            attrval = self._format_item("word", word=(token.get("word") or ""))
+            attrval = lambda: self._format_item("word",
+                                                word=(token.get("word") or ""))
         else:
             itemname = "attr"
-            attrval = self._format_token_attr(
+            attrval = lambda: self._format_token_attr(
                 (attrname, token.get(attrname)), item_type="attr_only",
                 **kwargs)
         if attrname != "word":
@@ -1124,17 +1172,18 @@ class KorpExportFormatter(object):
         else:
             format_name = "token_noattrs"
         format_args = dict(
-            attrs=self._format_token_attrs(token),
-            structs_open=self._format_token_structs_open(token),
-            structs_close=self._format_token_structs_close(token))
+            attrs=lambda: self._format_token_attrs(token),
+            structs_open=lambda: self._format_token_structs_open(token),
+            structs_close=lambda: self._format_token_structs_close(token))
         format_args[itemname] = attrval
         # Allow direct format references to attr names
         format_args.update(dict(self._get_token_attrs(token)))
         format_args.update(kwargs)
         if attrname == "word":
-            fields = self._format_list("token_field",
-                                       self._opts.get("token_fields", []),
-                                       **format_args)
+            fields = lambda: self._format_list(
+                "token_field",
+                self._opts.get("token_fields", []),
+                **format_args)
         else:
             fields = ""
         match_open = match_close = match_marker = ""
@@ -1229,7 +1278,8 @@ class KorpExportFormatter(object):
         """
         if self.get_option_bool("combine_token_structs"):
             structname, attrlist = struct
-            attrstr = self._format_token_struct_attrs(attrlist, **format_args)
+            attrstr = lambda: self._format_token_struct_attrs(attrlist,
+                                                              **format_args)
             format_name = (
                 "token_struct_open_" + ("attrs" if attrstr else "noattrs"))
             return self._format_item(
