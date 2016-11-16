@@ -272,6 +272,20 @@ def get_token_attrs(token, attrnames=None):
         return [(attrname, token.get(attrname) or "") for attrname in attrnames]
 
 
+def get_token_attr(token, attrname="word"):
+    """Get a single (positional) attribute value of `token`.
+
+    Arguments:
+        token (dict): The token for which to get the attributes
+        attrname (str): The name of the attributes to get
+
+    Returns:
+        str: The value of attribute `attrname` in `token`; `None` if
+            not found
+    """
+    return token.get(attrname)
+
+
 def get_token_structs_open(token, combine_attrs=False):
     """Get a list of the structures that open at (immediately before) `token`.
 

@@ -15,6 +15,8 @@ values).
 
 from __future__ import absolute_import
 
+import re
+
 import korpexport.queryresult as qr
 from korpexport.formatter import KorpExportFormatter
 
@@ -147,6 +149,177 @@ class KorpExportFormatterDelimitedSentence(KorpExportFormatterDelimited):
 
     def __init__(self, **kwargs):
         super(KorpExportFormatterDelimitedSentence, self).__init__(**kwargs)
+
+
+class KorpExportFormatterDelimitedSentenceSimple(
+        KorpExportFormatterDelimitedSentence):
+
+    """
+    Format Korp results in a delimited-fields format, sentence per line.
+
+    A logical content formatter class for delimited-fields formats
+    with a sentence per line.
+
+    This class is a faster but simplified version of
+    KorpExportFormatterDelimitedSentence. The speed is achieved by
+    using specialized methods for formatting sentences and a single
+    sentence and by not supporting all the formatting features of the
+    superclass. In particular, the class requires using
+    ``sentence_fields`` for formatting the sentence
+    (``sentence_format`` is ignored), and the token format cannot
+    refer to token attributes.
+
+    This class does not specify the concrete delimiters; they need to
+    be specified in the subclass or in a mix-in class.
+    """
+
+    formats = ["sentence_line_simple",
+               "sentences_simple",
+               "fields_sentence_simple"]
+
+    def __init__(self, **kwargs):
+        super(KorpExportFormatterDelimitedSentenceSimple, self).__init__(
+            **kwargs)
+
+    def _format_sentences(self, **kwargs):
+        """Format the sentences of a query result.
+
+        Format all the sentences of a query result as a list.
+        Individual sentences are separated by ``sentence_sep``.
+        """
+        sentence_fields = self._opts["sentence_fields"]
+        tokens_type_info_all = [
+            ("tokens", dict(tokens_type="all"), "tokens|.*_all"),
+            ("match", dict(match_mark=self._opts.get("match_marker", "")),
+             ".*_match"),
+            ("left_context", {}, ".*_left_context"),
+            ("right_context", {}, ".*_right_context"),
+        ]
+        tokens_type_info = [
+            (tokens_type, opts)
+            for tokens_type, opts, regexp in tokens_type_info_all
+            if any(re.match("^(" + regexp + ")$", fieldname)
+                   for fieldname in sentence_fields)]
+        for tokens_type, opts in tokens_type_info:
+            if "tokens_type" not in opts:
+                opts["tokens_type"] = tokens_type
+            opts.update(kwargs)
+        sentences = qr.get_sentences(self._query_result)
+        match_format = dict((name, self._opts.get(name, ""))
+                            for name in ["match_open", "match_close",
+                                         "match_marker"])
+        mark_matches = any(match_format.itervalues())
+        return self._opts["sentence_sep"].join(
+            self._format_sentence(sent, sentence_num=sentnum,
+                                  tokens_type_info=tokens_type_info,
+                                  match_format=match_format,
+                                  mark_matches=mark_matches, **kwargs)
+            for sentnum, sent in enumerate(
+                    qr.get_sentences(self._query_result)))
+
+    def _format_sentence(self, sentence, sentence_num=None,
+                         tokens_type_info=None, match_format=None,
+                         mark_matches=False, **kwargs):
+        """Format a single sentence as a list of sentence fields.
+
+        Field values are separated by ``sentence_field_sep``.
+
+        Supported field names in ``sentence_fields``: ``corpus`` (the
+        name (id) of the corpus), ``match_pos`` (corpus position (the
+        number of the first token) of the match), ``tokens`` (all
+        tokens in the sentence), ``match`` (the tokens that are part
+        of the match), ``left_context`` (the tokens that precede the
+        match), ``right_context`` (the tokens that follow the match),
+        *attrs*´´_´´*type* where *attrs* is an attribute listed in
+        ``sentence_token_attrs`` (pluralized) and *type* one of
+        ``all``, ``match``, ``left_context``, ``right_context`` (list
+        of values of all the attributes *attr* in tokens of *type* in
+        the sentence), ``aligned`` (aligned sentences in a parallel
+        corpus), ``structs`` (formatted structural attributes of the
+        sentence), structural attribute names as such (unformatted
+        values), ``sentence_num`` (the number of the sentence in this
+        list of sentences, a zero-based integer), ``hit_num´´ (the
+        (global) number of the hit in the result, a zero-based
+        integer), ``info`` (formatted sentence information); names of
+        structural attributes (unformatted); ``corpus_info``
+        (formatted corpus info); those listed in
+        :method:`_init_infoitems`; those listed in
+        :method:`_get_corpus_info`; any additional keyword arguments
+        passed via ``kwargs``.
+
+        """
+        struct = lambda: self._get_formatted_sentence_structs(sentence,
+                                                              **kwargs)
+        corpus = qr.get_sentence_corpus(sentence)
+        corpus_info = self._get_corpus_info(sentence)
+        field_vals = dict(
+            corpus=corpus,
+            match_pos=qr.get_sentence_match_position(sentence),
+            # Would it make sense to have match_open and match_close
+            # as fields?
+            match_open=match_format["match_open"],
+            match_close=match_format["match_close"],
+            aligned=lambda: self._format_aligned_sentences(sentence),
+            structs=lambda: self._format_structs(sentence),
+            # struct=struct,
+            # corpus_info_field=corpus_info,
+            sentence_num=sentence_num,
+            hit_num=(int(self._infoitems["param"].get("start") or 0)
+                     + sentence_num))
+        token_sep = self._opts["token_sep"]
+        token_attrs = ["word"]
+        token_attrs.extend(self._sentence_token_attrs)
+        token_sep = self._opts["token_sep"]
+        for tokens_type, opts in tokens_type_info:
+            tokens = qr.get_sentence_tokens(sentence, opts["tokens_type"])
+            if mark_matches:
+                match_start = match_end = -1
+                if tokens_type == "tokens":
+                    match_start = qr.get_sentence_match_info(sentence, "start")
+                    match_end = qr.get_sentence_match_info(sentence, "end")
+                elif tokens_type == "match":
+                    match_start = 0
+                    match_end = len(tokens)
+            for attrname in token_attrs:
+                if attrname == "word":
+                    field_name = tokens_type
+                else:
+                    field_name = (
+                        self._sentence_token_attr_labels[attrname] + "_"
+                        + (tokens_type if tokens_type != "tokens" else "all"))
+                token_list = []
+                for token_num, token in enumerate(tokens):
+                    match_open = (match_format["match_open"]
+                                  if token_num == match_start else "")
+                    match_close = (match_format["match_close"]
+                                   if token_num == match_end - 1 else "")
+                    match_marker = (match_format["match_marker"]
+                                    if match_start <= token_num < match_end
+                                    else "")
+                    token_list.append(self._format_item(
+                        "token",
+                        word=qr.get_token_attr(token, attrname) or "",
+                        match_open=match_open,
+                        match_close=match_close,
+                        match_marker=match_marker))
+                field_vals[field_name] = token_sep.join(token_list)
+        # Allow direct format references to extra keyword arguments,
+        # struct names (unformatted values), query info items and
+        # corpus info items.
+        field_vals.update(kwargs)
+        field_vals.update(dict(self._get_sentence_structs(sentence)))
+        field_vals.update(self._infoitems)
+        field_vals.update(corpus_info)
+        field_vals.update(
+            dict(corpus_info=lambda: self._format_corpus_info(**field_vals)))
+        field_vals.update(
+            dict(info=lambda: self._format_item("sentence_info", **field_vals)))
+        fieldnames = self._opts["sentence_fields"]
+        for fieldname in fieldnames:
+            if callable(field_vals[fieldname]):
+                field_vals[fieldname] = field_vals[fieldname]()
+        return self._opts["sentence_field_sep"].join(
+            unicode(field_vals[fieldname]) for fieldname in fieldnames)
 
 
 class KorpExportFormatterDelimitedToken(KorpExportFormatterDelimited):
