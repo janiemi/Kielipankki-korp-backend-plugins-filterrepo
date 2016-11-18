@@ -205,21 +205,23 @@ class KorpExportFormatterDelimitedSentenceSimple(
                 opts["tokens_type"] = tokens_type
             opts.update(kwargs)
         sentences = qr.get_sentences(self._query_result)
-        match_format = dict((name, self._opts.get(name, ""))
-                            for name in ["match_open", "match_close",
-                                         "match_marker"])
+        token_format = self._opts["token_format"]
+        match_format = dict(
+            (name, (self._opts.get(name, "")
+                    if ("{" + name + "}") in token_format else ""))
+            for name in ["match_open", "match_close", "match_marker"])
         mark_matches = any(match_format.itervalues())
         return self._opts["sentence_sep"].join(
-            self._format_sentence(sent, sentence_num=sentnum,
-                                  tokens_type_info=tokens_type_info,
-                                  match_format=match_format,
-                                  mark_matches=mark_matches, **kwargs)
+            self._format_sentence(
+                sent, sentence_num=sentnum, tokens_type_info=tokens_type_info,
+                token_format=token_format, match_format=match_format,
+                mark_matches=mark_matches, **kwargs)
             for sentnum, sent in enumerate(
                     qr.get_sentences(self._query_result)))
 
     def _format_sentence(self, sentence, sentence_num=None,
-                         tokens_type_info=None, match_format=None,
-                         mark_matches=False, **kwargs):
+                         tokens_type_info=None, token_format="",
+                         match_format=None, mark_matches=False, **kwargs):
         """Format a single sentence as a list of sentence fields.
 
         Field values are separated by ``sentence_field_sep``.
@@ -270,10 +272,13 @@ class KorpExportFormatterDelimitedSentenceSimple(
         token_attrs = ["word"]
         token_attrs.extend(self._sentence_token_attrs)
         token_sep = self._opts["token_sep"]
+        match_open = match_format["match_open"]
+        match_close = match_format["match_close"]
+        match_marker = match_format["match_marker"]
+        match_start = match_end = -1
         for tokens_type, opts in tokens_type_info:
             tokens = qr.get_sentence_tokens(sentence, opts["tokens_type"])
             if mark_matches:
-                match_start = match_end = -1
                 if tokens_type == "tokens":
                     match_start = qr.get_sentence_match_info(sentence, "start")
                     match_end = qr.get_sentence_match_info(sentence, "end")
@@ -289,19 +294,21 @@ class KorpExportFormatterDelimitedSentenceSimple(
                         + (tokens_type if tokens_type != "tokens" else "all"))
                 token_list = []
                 for token_num, token in enumerate(tokens):
-                    match_open = (match_format["match_open"]
-                                  if token_num == match_start else "")
-                    match_close = (match_format["match_close"]
-                                   if token_num == match_end - 1 else "")
-                    match_marker = (match_format["match_marker"]
-                                    if match_start <= token_num < match_end
-                                    else "")
-                    token_list.append(self._format_item(
-                        "token",
-                        word=qr.get_token_attr(token, attrname) or "",
-                        match_open=match_open,
-                        match_close=match_close,
-                        match_marker=match_marker))
+                    # Sring replacing is faster than using
+                    # string.format (called by self._format_item)
+                    formatted_token = token_format.replace(
+                        u"{word}", qr.get_token_attr(token, attrname) or "")
+                    formatted_token = formatted_token.replace(
+                        u"{match_open}",
+                        match_open if token_num == match_start else "")
+                    formatted_token = formatted_token.replace(
+                        u"{match_close}",
+                        match_close if token_num == match_end - 1 else "")
+                    formatted_token = formatted_token.replace(
+                        u"{match_marker}",
+                        (match_marker
+                         if match_start <= token_num < match_end else ""))
+                    token_list.append(formatted_token)
                 field_vals[field_name] = token_sep.join(token_list)
         # Allow direct format references to extra keyword arguments,
         # struct names (unformatted values), query info items and
