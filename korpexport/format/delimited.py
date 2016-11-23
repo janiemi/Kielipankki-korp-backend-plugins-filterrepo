@@ -206,11 +206,20 @@ class KorpExportFormatterDelimitedSentenceSimple(
             opts.update(kwargs)
         sentences = qr.get_sentences(self._query_result)
         token_format = self._opts["token_format"]
-        match_format = dict(
-            (name, (self._opts.get(name, "")
-                    if ("{" + name + "}") in token_format else ""))
-            for name in ["match_open", "match_close", "match_marker"])
+        match_format = {}
+        for opt_name in ["match_open", "match_close", "match_marker"]:
+            opt_val = self._opts.get(opt_name, "")
+            if ("{" + opt_name + "}") in token_format and opt_val:
+                match_format[opt_name] = opt_val
+            else:
+                match_format[opt_name] = ""
+                token_format = token_format.replace("{" + opt_name + "}", "")
         mark_matches = any(match_format.itervalues())
+        # If token_format contains no match marking placeholders nor
+        # any additional content, set token_format to None to speed up
+        # token formatting in _format_sentence.
+        if not mark_matches and token_format == "{word}":
+            token_format = None
         return self._opts["sentence_sep"].join(
             self._format_sentence(
                 sent, sentence_num=sentnum, tokens_type_info=tokens_type_info,
@@ -249,6 +258,9 @@ class KorpExportFormatterDelimitedSentenceSimple(
         :method:`_get_corpus_info`; any additional keyword arguments
         passed via ``kwargs``.
 
+        If `token_format` is `None`, output each word (or token
+        attribute) as such, with no formatting, faster than using the
+        `token_format` ``{word}``.
         """
         struct = lambda: self._get_formatted_sentence_structs(sentence,
                                                               **kwargs)
@@ -294,21 +306,27 @@ class KorpExportFormatterDelimitedSentenceSimple(
                         + (tokens_type if tokens_type != "tokens" else "all"))
                 token_list = []
                 for token_num, token in enumerate(tokens):
-                    # Sring replacing is faster than using
-                    # string.format (called by self._format_item)
-                    formatted_token = token_format.replace(
-                        u"{word}", qr.get_token_attr(token, attrname) or "")
-                    formatted_token = formatted_token.replace(
-                        u"{match_open}",
-                        match_open if token_num == match_start else "")
-                    formatted_token = formatted_token.replace(
-                        u"{match_close}",
-                        match_close if token_num == match_end - 1 else "")
-                    formatted_token = formatted_token.replace(
-                        u"{match_marker}",
-                        (match_marker
-                         if match_start <= token_num < match_end else ""))
-                    token_list.append(formatted_token)
+                    token_str = qr.get_token_attr(token, attrname) or ""
+                    if token_format is not None:
+                        # Sring replacing is faster than using
+                        # string.format (called by self._format_item)
+                        token_str = token_format.replace(u"{word}", token_str)
+                        if match_open:
+                            token_str = token_str.replace(
+                                u"{match_open}",
+                                match_open if token_num == match_start else "")
+                        if match_close:
+                            token_str = token_str.replace(
+                                u"{match_close}",
+                                (match_close if token_num == match_end - 1
+                                 else ""))
+                        if match_marker:
+                            token_str = token_str.replace(
+                                u"{match_marker}",
+                                (match_marker
+                                 if match_start <= token_num < match_end
+                                 else ""))
+                    token_list.append(token_str)
                 field_vals[field_name] = token_sep.join(token_list)
         # Allow direct format references to extra keyword arguments,
         # struct names (unformatted values), query info items and
