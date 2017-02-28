@@ -133,10 +133,14 @@ def main():
                         **logging_config_filearg)
     # Log remote IP address and CGI parameters
     logging.info('IP: %s', cgi.os.environ.get('REMOTE_ADDR'))
+    logging.info('User-agent: %s', cgi.os.environ.get('HTTP_USER_AGENT'))
+    logging.info('Referer: %s', cgi.os.environ.get('HTTP_REFERER'))
+    logging.info('Script: %s', cgi.os.environ.get('SCRIPT_NAME'))
     # Limit the length of in particular query_result written to the log
     logging.info("Params: %s",
                  dict((key, truncate(form[key], 800))
                       for key in sorted(key0 for key0 in form)))
+    logging.debug('Env: %s', cgi.os.environ)
     try:
         result = ke.make_download_file(
             form, form.get("korp_server", KORP_SERVER),
