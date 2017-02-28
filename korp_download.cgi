@@ -61,6 +61,7 @@ import time
 import cgi
 import logging
 import urllib
+import time
 
 import korpexport.exporter as ke
 
@@ -71,8 +72,11 @@ import korpexport.exporter as ke
 # KORP_SERVER = "http://localhost/cgi-bin/korp/korp.cgi"
 KORP_SERVER = os.path.join(os.path.dirname(__file__), "korp.cgi")
 
+_localtime = time.localtime()
 # Path to log file; use /dev/null to disable logging
-LOG_FILE = "/v/korp/log/korp-cgi.log"
+# (/v/korp/log/korp-cgi-YYYYMM.log)
+LOG_FILE = "/v/korp/log/korp-cgi-{year}{mon:02d}.log".format(
+    year=_localtime.tm_year, mon=_localtime.tm_mon)
 # Log level: set to logging.DEBUG for also logging actual CQP
 # commands, logging.WARNING for only warnings and errors,
 # logging.CRITICAL to disable logging
