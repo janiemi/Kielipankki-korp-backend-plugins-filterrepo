@@ -140,6 +140,11 @@ def main():
     logging.info("Params: %s",
                  dict((key, truncate(form[key], 800))
                       for key in sorted(key0 for key0 in form)))
+    # Log user information (Shibboleth authentication only)
+    remote_user = cgi.os.environ.get('REMOTE_USER')
+    if remote_user:
+        logging.info('Auth-domain: %s', remote_user.partition('@')[2])
+        logging.info('Auth-user: %s', md5.new(remote_user).hexdigest())
     logging.debug('Env: %s', cgi.os.environ)
     try:
         result = ke.make_download_file(
