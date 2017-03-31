@@ -166,6 +166,10 @@ def main():
     print_object(result)
     # Log elapsed time
     logging.info("Elapsed: %s", str(time.time() - starttime))
+    if 'download_content' in result:
+        logging.info('Content-length: %d', len(result['download_content']))
+    logging.info('CPU-load: %s', ' '.join(str(val) for val in os.getloadavg()))
+    logging.info('CPU-times: %s', ' '.join(str(val) for val in os.times()[:4]))
 
 
 def print_header(obj):
