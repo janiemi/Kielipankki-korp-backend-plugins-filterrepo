@@ -62,6 +62,7 @@ import cgi
 import logging
 import urllib
 import time
+import md5
 
 import korpexport.exporter as ke
 
