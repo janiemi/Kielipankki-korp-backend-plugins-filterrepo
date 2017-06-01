@@ -124,7 +124,7 @@ class KorpExportFormatterDelimitedSentence(KorpExportFormatterDelimited):
             "param_format": u"{key}={value}",
             "param_sep": "; ",
             "infoitems": "date,korp_url",
-            "sentence_fields": ("hit_num,corpus,tokens,lemmas_all,?aligned,"
+            "sentence_fields": ("hit_num,corpus,tokens,?lemmas_all,?aligned,"
                                 "*structs,?urn,?metadata_link,?licence_name,"
                                 "date,hitcount,?korp_url,params"),
             "sentence_token_attrs": "lemma",
@@ -140,7 +140,7 @@ class KorpExportFormatterDelimitedSentence(KorpExportFormatterDelimited):
         "lemmas-kwic": {
             "sentence_fields": (
                 "hit_num,corpus,left_context,match,right_context,"
-                "lemmas_left_context,lemmas_match,lemmas_right_context,"
+                "?lemmas_left_context,?lemmas_match,?lemmas_right_context,"
                 "?aligned,*structs,?urn,?metadata_link,?licence_name,date,"
                 "hitcount,?korp_url,params"),
             "sentence_token_attrs": "lemma",
