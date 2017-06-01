@@ -509,15 +509,30 @@ class KorpExportFormatter(object):
             containing the items in the option ``name``; if `item` is
             of the form ``?name``, add ``name`` only if the
             information `item` is available for any corpus of the
-            query result (or for ``?aligned``, if the corpus is a
-            parallel corpus). The return value is a list.
+            query result either in corpus information or as a sentence
+            token attribute field (or for ``?aligned``, if the corpus
+            is a parallel corpus). The return value is a list.
             """
             if item.startswith("*"):
                 return self._opts.get(item[1:], [])
             elif item.startswith("?"):
-                return [item[1:]] if item[1:] in available_corpus_info else []
+                return [item[1:]] if info_is_available(item[1:]) else []
             else:
                 return [item]
+
+        def info_is_available(item):
+            """Test if item is available corpus info or sentence token attr."""
+            return (item in available_corpus_info
+                    or sentence_token_attr_is_available(item))
+
+        def sentence_token_attr_is_available(item):
+            """Test if item is an avaialble sentence token attribute field."""
+            # FIXME: This will not work correctly if the token
+            # attribute name ends in an "e".
+            mo = re.match(
+                r'(.*?)e?s_(?:all|match|(?:left|right)_context)', item)
+            return mo and qr.get_occurring_attrnames(self._query_result,
+                                                     [mo.group(1)], 'tokens')
 
         available_corpus_info = qr.get_occurring_corpus_info(self._query_result)
         if "urn" in available_corpus_info or "url" in available_corpus_info:
