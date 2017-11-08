@@ -58,6 +58,44 @@ def make_download_file(form, korp_server_url, **kwargs):
     return exporter.make_download_file(korp_server_url, **kwargs)
 
 
+def _decode_list_param(str_list, alt_delim=None):
+    """Decode a list-valued parameter str_list into a list of strings by
+    splitting at QUERY_DELIM (comma) and the characters in alt_delim
+    (QUERY_DELIM_ALT by default). Also expand one level of common
+    prefixes with suffixes marked with parentheses: LAM_A(HLA,NTR) ->
+    LAM_AHLA,LAM_ANTR (nesting parentheses is not allowed).
+    """
+    # This function is slightly modified from decode_list_param in
+    # korp.cgi. It would probably be better to have a single function
+    # in a utility module.
+    QUERY_DELIM = ","
+    QUERY_DELIM_ALT = "."
+    if alt_delim is None:
+        alt_delim = QUERY_DELIM_ALT
+    if alt_delim:
+        split_val = re.split(r"[" + QUERY_DELIM + alt_delim + r"]",
+                             str_list)
+    else:
+        split_val = str_list.split(QUERY_DELIM)
+    result = []
+    prefix = ""
+    for elem in split_val:
+        mo = re.match(r"^([^()]*)([()])?(.*)$", elem)
+        pref, sep, suff = mo.groups()
+        if sep == "(":
+            # new_prefix(suffix
+            prefix = pref
+            result.append(prefix + suff)
+        elif sep == ')':
+            # last_suffix)
+            result.append(prefix + pref)
+            prefix = ""
+        else:
+            # Neither ( nor )
+            result.append(prefix + pref)
+    return result
+
+
 class KorpExportError(Exception):
 
     """An exception class for errors in exporting Korp query results."""
@@ -74,6 +112,15 @@ class KorpExporter(object):
 
     _filename_format_default = u"korp_kwic_{cqpwords:.60}_{date}_{time}{ext}"
     """Default filename format"""
+
+    _ENCODED_LIST_QUERY_PARAMS = [
+        "corpus",
+        "show",
+        "show_struct",
+        "context",
+        "within",
+    ]
+    """List-valued query parameters that may have been prefix-encoded"""
 
     def __init__(self, form, options=None, filename_format=None,
                  filename_encoding="utf-8", **kwargs):
@@ -273,6 +320,7 @@ class KorpExporter(object):
                 self._query_params = json.loads(self._form.get("query_params"))
             else:
                 self._query_params = self._form
+            self._decode_query_params()
             if "debug" in self._form and "debug" not in self._query_params:
                 self._query_params["debug"] = self._form["debug"]
             # If the format uses structural information, add the
@@ -293,6 +341,12 @@ class KorpExporter(object):
             return
         self._opts = self._extract_options(korp_server_url)
         logging.debug("opts: %s", self._opts)
+
+    def _decode_query_params(self):
+        for paramname in self._ENCODED_LIST_QUERY_PARAMS:
+            if paramname in self._query_params:
+                self._query_params[paramname] = ",".join(_decode_list_param(
+                    self._query_params[paramname]))
 
     def _query_korp_server(self, url_or_progname, query_params=None):
         """Query a Korp server, either via HTTP or as a subprocess.
