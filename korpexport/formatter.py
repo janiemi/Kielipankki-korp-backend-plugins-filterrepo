@@ -966,8 +966,9 @@ class KorpExportFormatter(object):
         :method:`_get_corpus_info`.
         """
 
-        struct = lambda: self._get_formatted_sentence_structs(sentence,
-                                                              **kwargs)
+        # struct cannot be a lambda function, since its keys are
+        # referred to elsewhere.
+        struct = self._get_formatted_sentence_structs(sentence, **kwargs)
         corpus = qr.get_sentence_corpus(sentence)
         corpus_info = self._get_corpus_info(sentence)
         format_args = dict(
@@ -1043,6 +1044,10 @@ class KorpExportFormatter(object):
         ``struct[key]``.
         """
         value = format_args.get(key)
+        # FIXME: Is the following really necessary, since format_args
+        # contains structural attributes directly as keys (with
+        # unformatted values)? In any case, the values in struct are
+        # functions that should be called.
         if value is None:
             value = format_args.get("struct", {}).get(key, "")
         return self._format_label_list_item(
