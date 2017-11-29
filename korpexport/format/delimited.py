@@ -116,6 +116,29 @@ class KorpExportFormatterDelimitedSentence(KorpExportFormatterDelimited):
         "sentence_field_sep": "\t",
     }
 
+    # In the subformats lemmas-resultinfo and lemmas-kwic, add columns
+    # containing the values of these (corpus-specific) attributes for
+    # each token, separated by spaces. The columns are added only if
+    # the corpora in the result contain them.
+    _lemmas_extra_pos_attrs = [
+        "lemma",
+        # LA-murre
+        "cleanword",
+        # Reittidemo
+        "spoken",
+        # SKN
+        "original",
+        "normalized",
+        # DMA
+        "searchword",
+    ]
+    _lemmas_sentence_token_attrs = ",".join(_lemmas_extra_pos_attrs)
+    _lemmas_resultinfo_extra_pos_fields = ",".join(
+        "?" + attrname + "s_all" for attrname in _lemmas_extra_pos_attrs)
+    _lemmas_kwic_extra_pos_fields = ",".join(
+        "?" + attrname + "s_" + type_
+        for attrname in _lemmas_extra_pos_attrs
+        for type_ in ["left_context", "match", "right_context"])
     _subformat_options = {
         "lemmas-resultinfo": {
             "show_info": "false",
@@ -124,10 +147,12 @@ class KorpExportFormatterDelimitedSentence(KorpExportFormatterDelimited):
             "param_format": u"{key}={value}",
             "param_sep": "; ",
             "infoitems": "date,korp_url",
-            "sentence_fields": ("hit_num,corpus,tokens,?lemmas_all,?aligned,"
+            "sentence_fields": ("hit_num,corpus,tokens,"
+                                + _lemmas_resultinfo_extra_pos_fields
+                                + ",?aligned,"
                                 "*structs,?urn,?metadata_link,?licence_name,"
                                 "date,hitcount,?korp_url,params"),
-            "sentence_token_attrs": "lemma",
+            "sentence_token_attrs": _lemmas_sentence_token_attrs,
             "token_format": u"{match_open}{word}{match_close}",
             "heading_rows": 1,
             # "match_open": u"<<<",
@@ -140,10 +165,10 @@ class KorpExportFormatterDelimitedSentence(KorpExportFormatterDelimited):
         "lemmas-kwic": {
             "sentence_fields": (
                 "hit_num,corpus,left_context,match,right_context,"
-                "?lemmas_left_context,?lemmas_match,?lemmas_right_context,"
-                "?aligned,*structs,?urn,?metadata_link,?licence_name,date,"
+                + _lemmas_kwic_extra_pos_fields
+                + "?aligned,*structs,?urn,?metadata_link,?licence_name,date,"
                 "hitcount,?korp_url,params"),
-            "sentence_token_attrs": "lemma",
+            "sentence_token_attrs": _lemmas_sentence_token_attrs,
         },
     }
 

@@ -346,6 +346,10 @@ class KorpExportFormatter(object):
             "korp_url": "Korp URL",
             "korp_server_url": "Korp server URL",
             "hitcount": "total hits",
+            # The following pluralized forms would not be grammatical
+            "spokens": "spoken forms",
+            "originals": "original forms",
+            "normalizeds": "normalized forms",
             },
         "sentence_field_format": u"{value}",
         "sentence_field_sep": "",
