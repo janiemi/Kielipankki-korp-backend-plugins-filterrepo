@@ -573,11 +573,13 @@ class KorpExportFormatter(object):
             if re.search(r"([sz]|[cs]h)$", attrname):
                 label_base += "e"
             label_base += "s"
+            label_base_readable = labels.get(label_base, label_base)
             self._sentence_token_attr_labels[attrname] = label_base
-            labels[label_base + "_all"] = label_base
+            labels[label_base + "_all"] = label_base_readable
             for tokens_type in ["match", "left_context", "right_context"]:
                 labels[label_base + "_" + tokens_type] = (
-                    labels.get(tokens_type, tokens_type) + " " + label_base)
+                    labels.get(tokens_type, tokens_type) + " "
+                    + label_base_readable)
 
     def _init_infoitems(self):
         """Initialize query result info items used in several format methods.
