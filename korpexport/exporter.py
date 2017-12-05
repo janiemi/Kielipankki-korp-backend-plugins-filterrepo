@@ -328,8 +328,13 @@ class KorpExporter(object):
             # are associated with information on opening and closing
             # those structures. Param "show_struct" only gives us
             # struct attribute values for a whole sentence.
-            if self._formatter.structured_format:
-                self._query_params["show"] += self._query_params["show_struct"]
+            if (self._formatter.structured_format
+                and self._query_params.get("show_struct")):
+                if self._query_params.get("show"):
+                    self._query_params["show"] += (
+                        "," + self._query_params["show_struct"])
+                else:
+                    self._query_params["show"] = self._query_params["show_struct"]
             logging.debug("query_params: %s", self._query_params)
             query_result_json = self._query_korp_server(korp_server_url)
             # Support "sort" in format params even if not specified
