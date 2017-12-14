@@ -388,6 +388,11 @@ class KorpExporter(object):
 
         if query_params is None:
             query_params = self._query_params
+        loginfo_text = "client=korp_download_kwic"
+        if "loginfo" in query_params:
+            query_params["loginfo"] += " " + loginfo_text
+        else:
+            query_params["loginfo"] = loginfo_text
         # Encode the query parameters in UTF-8 for Korp server
         logging.debug("Korp server: %s", url_or_progname)
         logging.debug("Korp query params: %s", query_params)
