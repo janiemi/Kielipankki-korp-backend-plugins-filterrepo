@@ -174,7 +174,6 @@ class KorpExporter(object):
         result["download_charset"] = self._formatter.download_charset
         content = self._formatter.make_download_content(
             self._query_result, self._query_params, self._opts, **kwargs)
-        logging.debug('content: %s', content)
         if isinstance(content, unicode) and self._formatter.download_charset:
             content = content.encode(self._formatter.download_charset)
         result["download_content"] = content
