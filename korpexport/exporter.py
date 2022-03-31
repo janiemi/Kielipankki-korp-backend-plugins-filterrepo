@@ -122,6 +122,14 @@ class KorpExporter(object):
     ]
     """List-valued query parameters that may have been prefix-encoded"""
 
+    _RENAME_QUERY_PARAMS = [
+        ("default_context", "defaultcontext"),
+        ("default_within", "defaultwithin"),
+    ]
+    """List of query parameters to rename (original, renamed), so that
+       korp_download.cgi can be called with Korp 8 parameters, even if
+       it calls Korp 2.8."""
+
     def __init__(self, form, options=None, filename_format=None,
                  filename_encoding="utf-8", **kwargs):
         """Construct a KorpExporter.
@@ -319,6 +327,7 @@ class KorpExporter(object):
                 self._query_params = json.loads(self._form.get("query_params"))
             else:
                 self._query_params = self._form
+            self._rename_query_params()
             self._decode_query_params()
             if "debug" in self._form and "debug" not in self._query_params:
                 self._query_params["debug"] = self._form["debug"]
@@ -345,6 +354,11 @@ class KorpExporter(object):
             return
         self._opts = self._extract_options(korp_server_url)
         logging.debug("opts: %s", self._opts)
+
+    def _rename_query_params(self):
+        for (orig, renamed) in self._RENAME_QUERY_PARAMS:
+            if orig in self._query_params:
+                self._query_params[renamed] = self._query_params[orig]
 
     def _decode_query_params(self):
         for paramname in self._ENCODED_LIST_QUERY_PARAMS:
