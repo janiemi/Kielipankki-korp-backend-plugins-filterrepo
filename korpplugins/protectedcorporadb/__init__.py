@@ -80,9 +80,7 @@ class ProtectedCorporaDatabase(korppluginlib.KorpCallbackPlugin):
                     self._connection.close()
                     self._connection = None
             except (AttributeError, MySQLdb.MySQLError, MySQLdb.InterfaceError,
-                    MySQLdb.DatabaseError) as e:
-                # Assume that no corpora are protected if trying to access the
-                # database results in an error
+                    MySQLdb.DatabaseError):
                 raise ConnectionError
 
         return protected_corpora
