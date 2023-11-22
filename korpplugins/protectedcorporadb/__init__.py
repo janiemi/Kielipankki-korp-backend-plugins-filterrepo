@@ -81,6 +81,7 @@ class ProtectedCorporaDatabase(korppluginlib.KorpCallbackPlugin):
                     self._connection = None
             except (AttributeError, MySQLdb.MySQLError, MySQLdb.InterfaceError,
                     MySQLdb.DatabaseError):
+                # FIXME: do we want logging here or not convert the error? --mma 22.11.2023
                 raise ConnectionError
 
         return protected_corpora
