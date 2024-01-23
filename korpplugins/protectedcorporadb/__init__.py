@@ -68,20 +68,34 @@ class ProtectedCorporaDatabase(korppluginlib.KorpCallbackPlugin):
 
     def filter_protected_corpora(self, protected_corpora, request):
         """Append to protected_corpora corpora in authorization database."""
+        connection_errors = (
+            AttributeError,
+            MySQLdb.MySQLError,
+            MySQLdb.InterfaceError,
+            MySQLdb.DatabaseError,
+        )
+
+        def db_fetch():
+            with self._connection.cursor() as cursor:
+                cursor.execute(self._list_protected_corpora_sql)
+                return [corpus for corpus, in cursor]
+
         if self._connect():
             try:
-                cursor = self._connection.cursor()
-                cursor.execute(self._list_protected_corpora_sql)
-                protected_corpora.extend(corpus for corpus, in cursor)
-                cursor.close()
-                # If the database connection is not persistent, close it
-                if not pluginconf.PERSISTENT_DB_CONNECTION:
-                    self._connection.close()
-                    self._connection = None
-            except (AttributeError, MySQLdb.MySQLError, MySQLdb.InterfaceError,
-                    MySQLdb.DatabaseError):
-                # FIXME: do we want logging here or not convert the error? --mma 22.11.2023
-                raise ConnectionError
+                protected_corpora.extend(db_fetch())
+            except connection_errors:
+                # retry in case connection is in bad state
+                # if we still can't connect, cause exception & handle it in
+                # the caller, which can try to use its cache
+                self._connect(force_reconnect=True)
+                try:
+                    protected_corpora.extend(db_fetch())
+                except connection_errors:
+                    raise ConnectionError
+
+        # If the database connection is not persistent, close it
+        if not pluginconf.PERSISTENT_DB_CONNECTION:
+            self._disconnect()
 
         return protected_corpora
 
