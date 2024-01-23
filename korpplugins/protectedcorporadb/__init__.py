@@ -64,8 +64,7 @@ class ProtectedCorporaDatabase(korppluginlib.KorpCallbackPlugin):
 
     def __del__(self):
         """Close connection when deleting the object."""
-        if self._connection:
-            self._connection.close()
+        self._disconnect()
 
     def filter_protected_corpora(self, protected_corpora, request):
         """Append to protected_corpora corpora in authorization database."""
@@ -86,14 +85,26 @@ class ProtectedCorporaDatabase(korppluginlib.KorpCallbackPlugin):
 
         return protected_corpora
 
-    def _connect(self):
+    def _disconnect(self):
+        """Disconnect from authorization database and set self._connection to None."""
+        if self._connection is not None:
+            try:
+                self._connection.close()
+            except Exception:
+                pass
+            self._connection = None
+
+    def _connect(self, force_reconnect = False):
         """Connect to authorization database if not already connected.
 
         Connect to the authorization database with parameters
         specified in the DBCONN_* configuration variables. Set
         self._connection to the connection and return it. If
-        connecting fails, set it to None and return None.
+        connecting fails, set it to None and return None. If
+        force_reconnect is True, make a connection in any case.
         """
+        if force_reconnect:
+            self._disconnect()
         if not self._connection:
             try:
                 self._connection = MySQLdb.connect(**self._conn_params)
